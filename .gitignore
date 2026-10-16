@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+.env
+*.stl
+*.gcode
+.DS_Store
+/tmp/cookiecutter_jobs/
+/var/tmp/cookiecutter_jobs/
+.idea/
+.vscode/

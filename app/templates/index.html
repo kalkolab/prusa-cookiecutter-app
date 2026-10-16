@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prusa Cookie Cutter & Stamp Studio</title>
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Three.js + STLLoader + OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    .prusa-orange { color: #fa6831; }
+    .bg-prusa-orange { background-color: #fa6831; }
+    .hover-bg-prusa:hover { background-color: #e5531d; }
+    .border-prusa { border-color: #fa6831; }
+    body { background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    input[type=range] { accent-color: #fa6831; }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+  <!-- Top Navigation Bar -->
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between z-10">
+    <div class="flex items-center space-x-3">
+      <div class="w-8 h-8 rounded-lg bg-prusa-orange flex items-center justify-center font-bold text-white shadow-lg">
+        <i data-lucide="cookie" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-tight">Prusa Cookie Cutter & Stamp Studio</h1>
+        <p class="text-xs text-slate-400">Headless Slicing for Prusa MK3S+ / MK4</p>
+      </div>
+    </div>
+
+    <!-- Auth / Profile Section -->
+    <div class="flex items-center space-x-4">
+      <div id="authStatusBadge" class="hidden text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700"></div>
+      <div id="g_id_signin_container"></div>
+      <div id="userProfile" class="hidden flex items-center space-x-3">
+        <img id="userAvatar" class="w-8 h-8 rounded-full border border-prusa" src="" alt="avatar">
+        <div class="text-left text-xs">
+          <div id="userName" class="font-semibold text-slate-200"></div>
+          <button onclick="signOut()" class="text-slate-400 hover:text-prusa-orange transition">Sign out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Body Layout -->
+  <main class="flex-1 flex overflow-hidden">
+    <!-- Left Sidebar: Controls & Inputs -->
+    <aside class="w-96 bg-slate-900/95 border-r border-slate-800 flex flex-col h-full overflow-y-auto p-5 space-y-5">
+      
+      <!-- Upload Dropzone -->
+      <section>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">1. Upload Image</label>
+        <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-prusa-orange rounded-xl p-4 text-center cursor-pointer transition bg-slate-800/40 relative">
+          <input type="file" id="fileInput" accept="image/png, image/jpeg, image/webp" class="hidden">
+          <div id="uploadPlaceholder" class="space-y-2 py-4">
+            <i data-lucide="upload-cloud" class="w-8 h-8 mx-auto text-slate-400"></i>
+            <p class="text-sm font-medium text-slate-300">Click or drag & drop image</p>
+            <p class="text-xs text-slate-500">PNG, JPG, Silhouette or Clipart</p>
+          </div>
+          <div id="uploadPreview" class="hidden space-y-2">
+            <img id="imgPreview" class="max-h-32 mx-auto rounded shadow border border-slate-700 object-contain" src="" alt="preview">
+            <button id="removeImageBtn" class="text-xs text-red-400 hover:underline">Change image</button>
+          </div>
+        </div>
+        <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
+          <label class="flex items-center space-x-2 cursor-pointer">
+            <input type="checkbox" id="invertInput" class="rounded bg-slate-800 border-slate-700 text-prusa-orange">
+            <span>Invert Colors (Dark/Light)</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Mode Selector -->
+      <section>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">2. Cutter Mode</label>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="modeCutterBtn" onclick="setMode('cutter')" class="py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-prusa-orange border-prusa text-white shadow">
+            <i data-lucide="scissors" class="w-4 h-4"></i>
+            <span>Cutter Only</span>
+          </button>
+          <button id="modeStampBtn" onclick="setMode('stamp')" class="py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600">
+            <i data-lucide="stamp" class="w-4 h-4"></i>
+            <span>Cutter + Stamp</span>
+          </button>
+        </div>
+        <p id="modeDescription" class="mt-1 text-[11px] text-slate-400">
+          Generates a 3-tier perimeter blade that cuts completely through dough.
+        </p>
+      </section>
+
+      <!-- Dimensions & Parameters -->
+      <section class="space-y-4">
+        <label class="block text-xs font-semibold uppercase text-slate-400">3. Sizing & Geometry</label>
+
+        <!-- Target Cut Size -->
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Target Inner Cut Size</span>
+            <span id="targetSizeVal" class="font-bold text-prusa-orange">80 mm</span>
+          </div>
+          <input type="range" id="targetSizeInput" min="40" max="180" step="5" value="80" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+          <p class="text-[10px] text-slate-500 mt-0.5">The longest inner dimension of the cut dough.</p>
+        </div>
+
+        <!-- Blade Height -->
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Blade Height</span>
+            <span id="bladeHeightVal" class="font-bold text-prusa-orange">12 mm</span>
+          </div>
+          <input type="range" id="bladeHeightInput" min="8" max="25" step="1" value="12" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+        </div>
+
+        <!-- Handle Rim Width -->
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Handle Rim Width</span>
+            <span id="handleWidthVal" class="font-bold text-prusa-orange">4.0 mm</span>
+          </div>
+          <input type="range" id="handleWidthInput" min="2" max="6" step="0.5" value="4.0" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+        </div>
+
+        <!-- Simplification Tolerance -->
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-slate-300">Mesh Smoothing</span>
+            <span id="simplifyVal" class="font-bold text-slate-400">0.15 mm</span>
+          </div>
+          <input type="range" id="simplifyInput" min="0.05" max="0.40" step="0.05" value="0.15" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+        </div>
+      </section>
+
+      <!-- Generate Action -->
+      <section class="pt-2">
+        <button id="generateBtn" onclick="generateModel()" class="w-full py-3 px-4 rounded-xl font-bold text-sm bg-prusa-orange hover-bg-prusa transition text-white shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
+          <i data-lucide="cpu" class="w-5 h-5"></i>
+          <span>Generate STL & Slice G-code</span>
+        </button>
+      </section>
+
+      <!-- Generation Results & Downloads -->
+      <section id="resultsSection" class="hidden space-y-4 pt-3 border-t border-slate-800">
+        <div class="bg-slate-800/80 rounded-xl p-3 border border-slate-700 space-y-2 text-xs">
+          <div class="font-semibold text-slate-200 flex items-center justify-between">
+            <span>Model Specs</span>
+            <span id="watertightBadge" class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">Watertight</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-slate-400">
+            <div>Inner Cut: <span id="resInnerDims" class="text-slate-200 font-mono">--</span></div>
+            <div>Print Size: <span id="resPrintDims" class="text-slate-200 font-mono">--</span></div>
+            <div>Triangles: <span id="resTriangles" class="text-slate-200 font-mono">--</span></div>
+            <div>Print Time: <span id="resPrintTime" class="text-slate-200 font-mono">--</span></div>
+          </div>
+        </div>
+
+        <!-- Downloads Grid -->
+        <div class="space-y-2">
+          <a id="downloadStlBtn" href="#" class="w-full py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold flex items-center justify-center space-x-2 transition text-slate-200">
+            <i data-lucide="box" class="w-4 h-4 text-prusa-orange"></i>
+            <span>Download 3D Model (.STL)</span>
+          </a>
+          <a id="downloadGcodeBtn" href="#" class="w-full py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold flex items-center justify-center space-x-2 transition text-slate-200">
+            <i data-lucide="file-code" class="w-4 h-4 text-emerald-400"></i>
+            <span>Download Sliced G-code (.GCODE)</span>
+          </a>
+        </div>
+      </section>
+    </aside>
+
+    <!-- Right 3D Viewport Area -->
+    <div class="flex-1 relative bg-slate-950 flex flex-col">
+      <!-- 3D Canvas Container -->
+      <div id="viewport3d" class="flex-1 w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+      <!-- Viewport Controls & HUD Overlay -->
+      <div class="absolute top-4 left-4 pointer-events-none flex flex-col space-y-2">
+        <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-lg p-2.5 text-xs text-slate-300 shadow-lg pointer-events-auto">
+          <div class="font-bold text-slate-200 flex items-center space-x-1.5">
+            <i data-lucide="layers" class="w-4 h-4 text-prusa-orange"></i>
+            <span>Prusa MK3S / MK4 Bed Preview</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">250 × 210 mm Bed Grid (10 mm spacing)</p>
+          <div id="hudDimensions" class="mt-2 text-xs font-mono text-emerald-400 hidden">
+            X: <span id="hudX">0</span>mm | Y: <span id="hudY">0</span>mm | Z: <span id="hudZ">0</span>mm
+          </div>
+        </div>
+      </div>
+
+      <!-- Camera View Presets -->
+      <div class="absolute top-4 right-4 flex space-x-2">
+        <button onclick="resetCamera('perspective')" class="px-2.5 py-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 backdrop-blur border border-slate-800 text-xs text-slate-300 font-medium transition shadow">
+          3D Perspective
+        </button>
+        <button onclick="resetCamera('top')" class="px-2.5 py-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 backdrop-blur border border-slate-800 text-xs text-slate-300 font-medium transition shadow">
+          Top View
+        </button>
+      </div>
+
+      <!-- Loading / Processing Spinner Overlay -->
+      <div id="loadingOverlay" class="hidden absolute inset-0 bg-slate-950/70 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-prusa"></div>
+        <p id="loadingStatusText" class="mt-4 text-sm font-semibold text-slate-200">Processing Geometry & Slicing G-code...</p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    lucide.createIcons();
+
+    // State Variables
+    let selectedFile = null;
+    let currentMode = 'cutter'; // 'cutter' or 'stamp'
+    let userToken = null;
+    let currentUser = null;
+    let config = { google_client_id: '', auth_disabled: true };
+
+    // DOM Elements
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+    const uploadPreview = document.getElementById('uploadPreview');
+    const imgPreview = document.getElementById('imgPreview');
+    const removeImageBtn = document.getElementById('removeImageBtn');
+
+    const targetSizeInput = document.getElementById('targetSizeInput');
+    const targetSizeVal = document.getElementById('targetSizeVal');
+    const bladeHeightInput = document.getElementById('bladeHeightInput');
+    const bladeHeightVal = document.getElementById('bladeHeightVal');
+    const handleWidthInput = document.getElementById('handleWidthInput');
+    const handleWidthVal = document.getElementById('handleWidthVal');
+    const simplifyInput = document.getElementById('simplifyInput');
+    const simplifyVal = document.getElementById('simplifyVal');
+    const invertInput = document.getElementById('invertInput');
+
+    const resultsSection = document.getElementById('resultsSection');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const loadingStatusText = document.getElementById('loadingStatusText');
+
+    // UI Input Event Listeners
+    targetSizeInput.addEventListener('input', (e) => targetSizeVal.innerText = `${e.target.value} mm`);
+    bladeHeightInput.addEventListener('input', (e) => bladeHeightVal.innerText = `${e.target.value} mm`);
+    handleWidthInput.addEventListener('input', (e) => handleWidthVal.innerText = `${e.target.value} mm`);
+    simplifyInput.addEventListener('input', (e) => simplifyVal.innerText = `${e.target.value} mm`);
+
+    // Drag and Drop Handling
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('border-prusa-orange'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('border-prusa-orange'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('border-prusa-orange');
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+    removeImageBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectedFile = null;
+      fileInput.value = '';
+      uploadPreview.classList.add('hidden');
+      uploadPlaceholder.classList.remove('hidden');
+    });
+
+    function handleFile(file) {
+      if (!file.type.startsWith('image/')) return alert('Please upload a valid image (PNG or JPG)');
+      selectedFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        imgPreview.src = e.target.result;
+        uploadPlaceholder.classList.add('hidden');
+        uploadPreview.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      const modeCutterBtn = document.getElementById('modeCutterBtn');
+      const modeStampBtn = document.getElementById('modeStampBtn');
+      const modeDescription = document.getElementById('modeDescription');
+
+      if (mode === 'cutter') {
+        modeCutterBtn.className = "py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-prusa-orange border-prusa text-white shadow";
+        modeStampBtn.className = "py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600";
+        modeDescription.innerText = "Generates a 3-tier perimeter blade that cuts completely through dough.";
+      } else {
+        modeStampBtn.className = "py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-prusa-orange border-prusa text-white shadow";
+        modeCutterBtn.className = "py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600";
+        modeDescription.innerText = "Generates outer cutter blade + solid backing plate + recessed interior imprint ribs.";
+      }
+    }
+
+    // Three.js 3D Viewport Setup
+    let scene, camera, renderer, controls, currentMesh, boxHelper;
+    const viewportContainer = document.getElementById('viewport3d');
+
+    function init3D() {
+      const width = viewportContainer.clientWidth;
+      const height = viewportContainer.clientHeight;
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0b1120);
+
+      camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+      resetCamera('perspective');
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.shadowMap.enabled = true;
+      viewportContainer.appendChild(renderer.domElement);
+
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.target.set(0, 0, 0);
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
+      const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+      dirLight1.position.set(100, 150, 200);
+      scene.add(dirLight1);
+
+      const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+      dirLight2.position.set(-100, -100, 100);
+      scene.add(dirLight2);
+
+      // Prusa Bed Visualizer (MK3S/MK4 bed: 250 x 210 mm)
+      createPrusaBed();
+
+      window.addEventListener('resize', onWindowResize);
+      animate();
+    }
+
+    function createPrusaBed() {
+      // Bed plate dimensions: 250mm x 210mm
+      const bedGroup = new THREE.Group();
+
+      // 10mm grid lines
+      const gridHelper = new THREE.GridHelper(250, 25, 0xfa6831, 0x1e293b);
+      gridHelper.rotation.x = Math.PI / 2; // Flat on XY plane (where Z is up)
+      bedGroup.add(gridHelper);
+
+      // Outer Bed Boundary Outline
+      const bedGeometry = new THREE.PlaneGeometry(250, 210);
+      const bedMaterial = new THREE.MeshBasicMaterial({
+        color: 0x141e33,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const bedPlane = new THREE.Mesh(bedGeometry, bedMaterial);
+      bedPlane.position.z = -0.05; // Slightly below Z=0
+      bedGroup.add(bedPlane);
+
+      // Border outline
+      const edges = new THREE.EdgesGeometry(bedGeometry);
+      const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x334155, linewidth: 2 }));
+      bedGroup.add(line);
+
+      scene.add(bedGroup);
+    }
+
+    function resetCamera(view) {
+      if (view === 'top') {
+        camera.position.set(0, 0, 260);
+        camera.up.set(0, 1, 0);
+      } else {
+        camera.position.set(0, -180, 140);
+        camera.up.set(0, 0, 1);
+      }
+      if (controls) controls.target.set(0, 0, 0);
+    }
+
+    function onWindowResize() {
+      const width = viewportContainer.clientWidth;
+      const height = viewportContainer.clientHeight;
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (controls) controls.update();
+      renderer.render(scene, camera);
+    }
+
+    function loadSTL(url, extents) {
+      const loader = new THREE.STLLoader();
+      loader.load(url, function (geometry) {
+        if (currentMesh) scene.remove(currentMesh);
+        if (boxHelper) scene.remove(boxHelper);
+
+        // Compute normals for smooth shading
+        geometry.computeVertexNormals();
+
+        // Prusa Orange matte plastic material
+        const material = new THREE.MeshStandardMaterial({
+          color: 0xfa6831,
+          roughness: 0.35,
+          metalness: 0.1,
+        });
+
+        currentMesh = new THREE.Mesh(geometry, material);
+        scene.add(currentMesh);
+
+        // Bounding Box Helper
+        boxHelper = new THREE.Box3Helper(new THREE.Box3().setFromObject(currentMesh), 0x10b981);
+        scene.add(boxHelper);
+
+        // Update HUD
+        document.getElementById('hudDimensions').classList.remove('hidden');
+        document.getElementById('hudX').innerText = extents.print_width_mm;
+        document.getElementById('hudY').innerText = extents.print_length_mm;
+        document.getElementById('hudZ').innerText = extents.print_height_mm;
+      });
+    }
+
+    // Generation API Call
+    async function generateModel() {
+      if (!selectedFile) return alert('Please upload an image first.');
+
+      loadingOverlay.classList.remove('hidden');
+      loadingStatusText.innerText = "Extracting contours & extruding 3D geometry...";
+
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+      formData.append('target_size_mm', targetSizeInput.value);
+      formData.append('blade_height', bladeHeightInput.value);
+      formData.append('handle_width', handleWidthInput.value);
+      formData.append('simplify_tol', simplifyInput.value);
+      formData.append('invert', invertInput.checked);
+      formData.append('stamp_mode', currentMode === 'stamp');
+
+      const headers = {};
+      if (userToken) {
+        headers['Authorization'] = `Bearer ${userToken}`;
+      }
+
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: headers,
+          body: formData
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || 'Failed to generate 3D model.');
+        }
+
+        // Update Results Section
+        resultsSection.classList.remove('hidden');
+        document.getElementById('resInnerDims').innerText = `${data.dimensions.inner_width_mm} × ${data.dimensions.inner_height_mm} mm`;
+        document.getElementById('resPrintDims').innerText = `${data.stats.print_width_mm} × ${data.stats.print_length_mm} × ${data.stats.print_height_mm} mm`;
+        document.getElementById('resTriangles').innerText = data.stats.triangle_count.toLocaleString();
+        document.getElementById('resPrintTime').innerText = data.slicing.estimated_print_time || "N/A";
+
+        // Setup Downloads
+        const downloadStlBtn = document.getElementById('downloadStlBtn');
+        const downloadGcodeBtn = document.getElementById('downloadGcodeBtn');
+        downloadStlBtn.href = data.downloads.stl_url;
+        downloadGcodeBtn.href = data.downloads.gcode_url;
+
+        if (!data.slicing.gcode_generated) {
+          downloadGcodeBtn.classList.add('opacity-50', 'pointer-events-none');
+          downloadGcodeBtn.title = data.slicing.error || "G-code slicing unavailable";
+        } else {
+          downloadGcodeBtn.classList.remove('opacity-50', 'pointer-events-none');
+          downloadGcodeBtn.title = "";
+        }
+
+        // Render 3D Model in Viewport
+        loadSTL(data.downloads.stl_url, data.stats);
+
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        loadingOverlay.classList.add('hidden');
+      }
+    }
+
+    // Google Identity Services (GIS) Auth Integration
+    async function initAuth() {
+      try {
+        const res = await fetch('/api/config');
+        config = await res.json();
+
+        const authStatusBadge = document.getElementById('authStatusBadge');
+        if (config.auth_disabled) {
+          authStatusBadge.classList.remove('hidden');
+          authStatusBadge.innerText = 'Dev Mode: Public Access';
+          return;
+        }
+
+        if (config.google_client_id) {
+          google.accounts.id.initialize({
+            client_id: config.google_client_id,
+            callback: handleCredentialResponse
+          });
+          google.accounts.id.renderButton(
+            document.getElementById('g_id_signin_container'),
+            { theme: 'outline', size: 'medium', shape: 'pill' }
+          );
+        }
+      } catch (e) {
+        console.error("Auth init error:", e);
+      }
+    }
+
+    function handleCredentialResponse(response) {
+      userToken = response.credential;
+      // Decode JWT payload to show user info
+      const base64Url = userToken.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+
+      currentUser = JSON.parse(jsonPayload);
+      document.getElementById('g_id_signin_container').classList.add('hidden');
+      document.getElementById('userProfile').classList.remove('hidden');
+      document.getElementById('userName').innerText = currentUser.name || currentUser.email;
+      if (currentUser.picture) {
+        document.getElementById('userAvatar').src = currentUser.picture;
+      }
+    }
+
+    function signOut() {
+      userToken = null;
+      currentUser = null;
+      document.getElementById('g_id_signin_container').classList.remove('hidden');
+      document.getElementById('userProfile').classList.add('hidden');
+    }
+
+    // Initialize on load
+    window.onload = () => {
+      init3D();
+      initAuth();
+    };
+  </script>
+</body>
+</html>
