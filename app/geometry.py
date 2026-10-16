@@ -1,16 +1,19 @@
 """
 2D-to-3D Geometry Engine for Cookie Cutter & Stamp Generation.
-Stack: OpenCV + Shapely + Trimesh
+Stack: OpenCV + Shapely + Trimesh + mapbox-earcut
 """
 
 import io
 import math
+import logging
 from typing import Dict, Any, Tuple, List, Optional
 import cv2
 import numpy as np
 from shapely.geometry import Polygon, MultiPolygon, GeometryCollection
-from shapely.ops import unary_union
+from shapely.ops import unary_union, orient
 import trimesh
+
+logger = logging.getLogger("geometry")
 
 
 def preprocess_image(
@@ -30,7 +33,7 @@ def preprocess_image(
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
     if img is None:
-        raise ValueError("Could not decode image file.")
+        raise ValueError("Could not decode image file. Please provide a valid PNG, JPG, or WebP.")
 
     # Handle transparent PNGs by compositing onto white background
     if len(img.shape) == 3 and img.shape[2] == 4:
@@ -48,7 +51,7 @@ def preprocess_image(
     h, w = img.shape[:2]
     if max(h, w) > max_px:
         scale = max_px / float(max(h, w))
-        new_w, new_h = int(w * scale), int(h * scale)
+        new_w, new_h = max(10, int(w * scale)), max(10, int(h * scale))
         img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
     # 3. Grayscale, Blur, Threshold
@@ -74,13 +77,13 @@ def extract_contours(binary_mask: np.ndarray, simplify_tol: float = 0.20) -> Lis
     """
     contours, hierarchy = cv2.findContours(binary_mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_TC89_KCOS)
     if not contours or hierarchy is None:
-        raise ValueError("No contours detected in image.")
+        raise ValueError("No contours detected in image. Try toggling 'Invert Colors' or using an image with higher contrast.")
 
     hierarchy = hierarchy[0]
     polygons: List[Polygon] = []
 
     for i, cnt in enumerate(contours):
-        # We process top-level contours (hierarchy[i][3] == -1) as outer boundaries
+        # Top-level contours (hierarchy[i][3] == -1) as outer boundaries
         if hierarchy[i][3] == -1:
             if len(cnt) < 3:
                 continue
@@ -95,24 +98,31 @@ def extract_contours(binary_mask: np.ndarray, simplify_tol: float = 0.20) -> Lis
                     holes.append(child_cnt.reshape(-1, 2))
                 child_idx = hierarchy[child_idx][0]
 
-            poly = Polygon(shell=outer_pts, holes=holes)
-            if not poly.is_valid:
-                poly = poly.buffer(0)
-            if poly.is_empty:
+            try:
+                poly = Polygon(shell=outer_pts, holes=holes)
+                if not poly.is_valid:
+                    poly = poly.buffer(0)
+                if poly.is_empty:
+                    continue
+
+                if simplify_tol > 0:
+                    poly = poly.simplify(simplify_tol, preserve_topology=True)
+
+                if isinstance(poly, Polygon) and poly.area > 50:
+                    polygons.append(orient(poly, sign=1.0))
+                elif isinstance(poly, MultiPolygon):
+                    for sub_poly in poly.geoms:
+                        if sub_poly.area > 50:
+                            polygons.append(orient(sub_poly, sign=1.0))
+            except Exception as e:
+                logger.warning(f"Skipping degenerate contour: {e}")
                 continue
 
-            if simplify_tol > 0:
-                poly = poly.simplify(simplify_tol, preserve_topology=True)
-
-            if isinstance(poly, Polygon) and poly.area > 50:
-                polygons.append(poly)
-            elif isinstance(poly, MultiPolygon):
-                for sub_poly in poly.geoms:
-                    if sub_poly.area > 50:
-                        polygons.append(sub_poly)
-
     if not polygons:
-        raise ValueError("No valid closed shapes could be extracted from image.")
+        raise ValueError(
+            "Found shapes in the image, but none were large or clean enough to form a cookie cutter. "
+            "Please check contrast or reduce mesh smoothing."
+        )
 
     return polygons
 
@@ -128,7 +138,6 @@ def scale_and_center_polygons(
     """
     # Main outer contour is the largest by area
     main_poly = max(polygons, key=lambda p: p.area)
-    # Remove holes from main polygon for the outer dough cutting perimeter
     outer_contour = Polygon(shell=main_poly.exterior)
     if not outer_contour.is_valid:
         outer_contour = outer_contour.buffer(0)
@@ -139,7 +148,7 @@ def scale_and_center_polygons(
     max_dim_px = max(width_px, height_px)
 
     if max_dim_px <= 0:
-        raise ValueError("Invalid contour bounding box.")
+        raise ValueError("Invalid contour bounding box (zero width or height).")
 
     scale = target_size_mm / max_dim_px
 
@@ -148,7 +157,6 @@ def scale_and_center_polygons(
     center_y = (miny + maxy) / 2.0
 
     def transform_poly(p: Polygon) -> Polygon:
-        # Translate to origin, flip Y so image Y-down matches standard Cartesian Y-up
         exterior_coords = [
             ((x - center_x) * scale, -(y - center_y) * scale)
             for x, y in p.exterior.coords
@@ -158,23 +166,21 @@ def scale_and_center_polygons(
             for hole in p.interiors
         ]
         res = Polygon(shell=exterior_coords, holes=holes_coords)
-        return res.buffer(0) if not res.is_valid else res
+        res = res.buffer(0) if not res.is_valid else res
+        return orient(res, sign=1.0)
 
     scaled_main = transform_poly(outer_contour)
 
-    # Transform internal features (holes from main + other smaller polygons)
+    # Transform internal features (holes from main + secondary smaller polygons)
     scaled_details: List[Polygon] = []
-    # Holes of original main poly
     for hole in main_poly.interiors:
         hole_poly = Polygon(shell=hole.coords)
         scaled_details.append(transform_poly(hole_poly))
 
-    # Other secondary contours
     for p in polygons:
         if p != main_poly:
             scaled_details.append(transform_poly(p))
 
-    # Calculate actual inner dimensions in mm
     s_minx, s_miny, s_maxx, s_maxy = scaled_main.bounds
     dims = {
         "inner_width_mm": round(s_maxx - s_minx, 2),
@@ -202,76 +208,79 @@ def generate_cookie_cutter_mesh(
     - Tier 1: Ergonomic Handle Rim (outer offset +handle_width, Z=0..handle_height)
     - Tier 2: Support Collar (outer offset +collar_width, Z=0..collar_height)
     - Tier 3: Cutting Blade (outer offset +blade_width, Z=0..blade_height)
-    If stamp_mode is True:
-    - Backing plate: Solid plate at Z=0..handle_height covering the entire inner area.
-    - Stamp details: Inner rings/features extruded to Z = (blade_height - stamp_relief).
     """
     meshes: List[trimesh.Trimesh] = []
+    error_log: List[str] = []
 
-    # 1. Generate concentric non-overlapping 2D rings for the 3 tiers
-    # Ring 3 (Blade core): from original cut line to +blade_width
+    # Ensure valid polygon geometry
+    if not outer_poly.is_valid:
+        outer_poly = outer_poly.buffer(0)
+    outer_poly = orient(outer_poly, sign=1.0)
+
+    # 1. Concentric non-overlapping 2D rings for the 3 tiers
     blade_outer = outer_poly.buffer(blade_width, resolution=32)
     poly_blade_ring = blade_outer.difference(outer_poly)
 
-    # Ring 2 (Collar step): from +blade_width to +collar_width
     collar_outer = outer_poly.buffer(collar_width, resolution=32)
     poly_collar_ring = collar_outer.difference(blade_outer)
 
-    # Ring 1 (Handle rim step): from +collar_width to +handle_width
     handle_outer = outer_poly.buffer(handle_width, resolution=32)
     poly_handle_ring = handle_outer.difference(collar_outer)
 
-    # Helper function to extrude a Shapely polygon into a Trimesh
-    def extrude_shape(poly_geom, height: float, z_offset: float = 0.0) -> Optional[trimesh.Trimesh]:
+    def extrude_shape(poly_geom, height: float, z_offset: float = 0.0, label: str = "") -> Optional[trimesh.Trimesh]:
         if poly_geom.is_empty:
             return None
         geoms = poly_geom.geoms if hasattr(poly_geom, "geoms") else [poly_geom]
         sub_meshes = []
-        for g in geoms:
+        for idx, g in enumerate(geoms):
             if not isinstance(g, Polygon) or g.is_empty or g.area < 1e-4:
                 continue
+            if not g.is_valid:
+                g = g.buffer(0)
+            g = orient(g, sign=1.0)
             try:
+                # Try earcut / standard extrusion
                 m = trimesh.creation.extrude_polygon(g, height=height)
                 if z_offset != 0.0:
                     m.apply_translation([0, 0, z_offset])
                 sub_meshes.append(m)
-            except Exception:
+            except Exception as ex:
+                err_msg = f"{label}[{idx}] extrusion failed: {str(ex)}"
+                logger.error(err_msg)
+                error_log.append(err_msg)
                 continue
         if not sub_meshes:
             return None
         return sub_meshes[0] if len(sub_meshes) == 1 else trimesh.util.concatenate(sub_meshes)
 
-    # Extrude Blade: full height (Z=0 to blade_height)
-    mesh_blade = extrude_shape(poly_blade_ring, height=blade_height, z_offset=0.0)
+    # Extrude Blade
+    mesh_blade = extrude_shape(poly_blade_ring, height=blade_height, z_offset=0.0, label="Blade")
     if mesh_blade:
         meshes.append(mesh_blade)
 
-    # Extrude Collar: up to collar_height (Z=0 to collar_height)
-    mesh_collar = extrude_shape(poly_collar_ring, height=collar_height, z_offset=0.0)
+    # Extrude Collar
+    mesh_collar = extrude_shape(poly_collar_ring, height=collar_height, z_offset=0.0, label="Collar")
     if mesh_collar:
         meshes.append(mesh_collar)
 
-    # Extrude Handle: up to handle_height (Z=0 to handle_height)
-    mesh_handle = extrude_shape(poly_handle_ring, height=handle_height, z_offset=0.0)
+    # Extrude Handle Rim
+    mesh_handle = extrude_shape(poly_handle_ring, height=handle_height, z_offset=0.0, label="Handle")
     if mesh_handle:
         meshes.append(mesh_handle)
 
     # 2. Stamp Mode Features
     if stamp_mode:
-        # A. Solid backing plate at Z=0 to handle_height covering the entire inner cut area
-        backing_plate_poly = outer_poly.buffer(0.2)  # slight overlap for manifold connection
-        mesh_backing = extrude_shape(backing_plate_poly, height=handle_height, z_offset=0.0)
+        backing_plate_poly = outer_poly.buffer(0.2)
+        mesh_backing = extrude_shape(backing_plate_poly, height=handle_height, z_offset=0.0, label="BackingPlate")
         if mesh_backing:
             meshes.append(mesh_backing)
 
-        # B. Detail imprint ribs
         stamp_height = max(handle_height + 1.0, blade_height - stamp_relief)
         rib_extrusion_height = stamp_height - handle_height
 
         clean_details = []
         for det in detail_polys:
             if not det.is_empty and det.area > 0.1:
-                # Buffer inner contours to create printable rib lines (width ~ 1.0mm)
                 rib = det.exterior.buffer(0.5, resolution=16)
                 if not rib.is_empty:
                     clean_details.append(rib)
@@ -281,13 +290,20 @@ def generate_cookie_cutter_mesh(
             mesh_stamp = extrude_shape(
                 merged_details,
                 height=rib_extrusion_height,
-                z_offset=handle_height
+                z_offset=handle_height,
+                label="StampRibs"
             )
             if mesh_stamp:
                 meshes.append(mesh_stamp)
 
     if not meshes:
-        raise ValueError("Failed to construct 3D mesh.")
+        diag = "; ".join(error_log) if error_log else "No valid extrusion produced."
+        raise ValueError(
+            f"Failed to construct 3D mesh. "
+            f"Diagnostics: {diag}. "
+            f"Outer contour area: {outer_poly.area:.1f} mm², "
+            f"Target size: {blade_height}mm height."
+        )
 
     final_mesh = trimesh.util.concatenate(meshes)
 
@@ -296,8 +312,7 @@ def generate_cookie_cutter_mesh(
     final_mesh.remove_degenerate_faces()
     final_mesh.fix_normals()
 
-    bounds = final_mesh.bounds
-    extents = final_mesh.extents  # [dx, dy, dz]
+    extents = final_mesh.extents
 
     stats = {
         "print_width_mm": round(float(extents[0]), 2),
