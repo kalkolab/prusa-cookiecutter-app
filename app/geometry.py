@@ -307,9 +307,8 @@ def generate_cookie_cutter_mesh(
 
     final_mesh = trimesh.util.concatenate(meshes)
 
-    # Clean and verify mesh
-    final_mesh.remove_duplicate_faces()
-    final_mesh.remove_degenerate_faces()
+    # Clean and verify mesh (compatible with trimesh 4.x+)
+    final_mesh.process(validate=True)
     final_mesh.fix_normals()
 
     extents = final_mesh.extents
