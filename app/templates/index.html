@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Prusa Cookie Cutter & Stamp Studio</title>
   <!-- Tailwind CSS & Lucide Icons -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -18,72 +18,87 @@
     .bg-prusa-orange { background-color: #fa6831; }
     .hover-bg-prusa:hover { background-color: #e5531d; }
     .border-prusa { border-color: #fa6831; }
-    body { background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
     input[type=range] { accent-color: #fa6831; }
+    #viewport3d canvas { touch-action: none; outline: none; }
   </style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden">
+<body class="min-h-screen lg:h-screen flex flex-col bg-slate-950 overflow-x-hidden lg:overflow-hidden">
 
   <!-- Top Navigation Bar -->
-  <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between z-10">
-    <div class="flex items-center space-x-3">
-      <div class="w-8 h-8 rounded-lg bg-prusa-orange flex items-center justify-center font-bold text-white shadow-lg">
+  <header class="bg-slate-900 border-b border-slate-800 px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between z-30 flex-shrink-0">
+    <div class="flex items-center space-x-2.5 sm:space-x-3">
+      <div class="w-8 h-8 rounded-lg bg-prusa-orange flex items-center justify-center font-bold text-white shadow-lg flex-shrink-0">
         <i data-lucide="cookie" class="w-5 h-5"></i>
       </div>
       <div>
-        <h1 class="text-lg font-bold tracking-tight">Prusa Cookie Cutter & Stamp Studio</h1>
-        <p class="text-xs text-slate-400">Headless Slicing for Prusa MK3S+ / MK4</p>
+        <h1 class="text-sm sm:text-base lg:text-lg font-bold tracking-tight">Cookie Cutter Studio</h1>
+        <p class="text-[10px] sm:text-xs text-slate-400 hidden sm:block">Headless Slicing for Prusa MK3S+ / MK4</p>
       </div>
     </div>
 
     <!-- Auth / Profile Section -->
-    <div class="flex items-center space-x-4">
-      <div id="authStatusBadge" class="hidden text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700"></div>
+    <div class="flex items-center space-x-2 sm:space-x-4">
+      <div id="authStatusBadge" class="hidden text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700"></div>
       <div id="g_id_signin_container"></div>
-      <div id="userProfile" class="hidden flex items-center space-x-3">
-        <img id="userAvatar" class="w-8 h-8 rounded-full border border-prusa" src="" alt="avatar">
+      <div id="userProfile" class="hidden flex items-center space-x-2 sm:space-x-3">
+        <img id="userAvatar" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-prusa flex-shrink-0" src="" alt="avatar">
         <div class="text-left text-xs">
-          <div id="userName" class="font-semibold text-slate-200"></div>
-          <button onclick="signOut()" class="text-slate-400 hover:text-prusa-orange transition">Sign out</button>
+          <div id="userName" class="font-semibold text-slate-200 max-w-[100px] sm:max-w-[140px] truncate"></div>
+          <button onclick="signOut()" class="text-[11px] text-slate-400 hover:text-prusa-orange transition">Sign out</button>
         </div>
       </div>
     </div>
   </header>
 
+  <!-- Mobile View Switcher Tabs (Visible on screens < lg) -->
+  <div class="lg:hidden flex border-b border-slate-800 bg-slate-900 sticky top-0 z-20 flex-shrink-0">
+    <button id="mobileTabControls" onclick="switchMobileView('controls')" class="flex-1 py-2.5 text-xs font-bold border-b-2 border-prusa-orange text-white flex items-center justify-center space-x-1.5 transition">
+      <i data-lucide="sliders" class="w-4 h-4 text-prusa-orange"></i>
+      <span>1. Design & Upload</span>
+    </button>
+    <button id="mobileTab3D" onclick="switchMobileView('3d')" class="flex-1 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-400 flex items-center justify-center space-x-1.5 transition">
+      <i data-lucide="box" class="w-4 h-4"></i>
+      <span>2. 3D Bed View</span>
+      <span id="mobileBadge" class="hidden w-2 h-2 rounded-full bg-emerald-400"></span>
+    </button>
+  </div>
+
   <!-- Error Notification Banner -->
-  <div id="errorBanner" class="hidden bg-red-950/90 border-b border-red-800 px-6 py-2.5 text-xs text-red-200 flex items-center justify-between z-20">
+  <div id="errorBanner" class="hidden bg-red-950/90 border-b border-red-800 px-4 py-2 text-xs text-red-200 flex items-center justify-between z-30">
     <div class="flex items-center space-x-2">
       <i data-lucide="alert-circle" class="w-4 h-4 text-red-400 flex-shrink-0"></i>
       <span id="errorBannerText">An error occurred</span>
     </div>
-    <button onclick="document.getElementById('errorBanner').classList.add('hidden')" class="text-red-400 hover:text-white">
+    <button onclick="document.getElementById('errorBanner').classList.add('hidden')" class="text-red-400 hover:text-white p-1">
       <i data-lucide="x" class="w-4 h-4"></i>
     </button>
   </div>
 
-  <!-- Main Body Layout -->
-  <main class="flex-1 flex overflow-hidden">
-    <!-- Left Sidebar: Controls & Inputs -->
-    <aside class="w-96 bg-slate-900/95 border-r border-slate-800 flex flex-col h-full overflow-y-auto p-5 space-y-4">
+  <!-- Main Body Layout: Stacked on mobile, side-by-side on desktop -->
+  <main class="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden relative">
+
+    <!-- Left Controls Panel -->
+    <aside id="controlsPanel" class="w-full lg:w-96 lg:max-w-md bg-slate-900/95 border-b lg:border-b-0 lg:border-r border-slate-800 flex flex-col overflow-y-auto p-4 sm:p-5 space-y-4 flex-shrink-0">
       
       <!-- Upload Dropzone -->
       <section>
-        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">1. Upload Image</label>
-        <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-prusa-orange rounded-xl p-4 text-center cursor-pointer transition bg-slate-800/40 relative">
-          <input type="file" id="fileInput" accept="image/png, image/jpeg, image/webp" class="hidden">
-          <div id="uploadPlaceholder" class="space-y-2 py-4">
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">1. Upload Image</label>
+        <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-prusa-orange rounded-xl p-4 text-center cursor-pointer transition bg-slate-800/40 relative active:scale-[0.99]">
+          <input type="file" id="fileInput" accept="image/*" class="hidden">
+          <div id="uploadPlaceholder" class="space-y-1.5 py-3 sm:py-4">
             <i data-lucide="upload-cloud" class="w-8 h-8 mx-auto text-slate-400"></i>
-            <p class="text-sm font-medium text-slate-300">Click or drag & drop image</p>
-            <p class="text-xs text-slate-500">PNG, JPG, Silhouette or Clipart</p>
+            <p class="text-sm font-medium text-slate-300">Tap to upload / take photo</p>
+            <p class="text-[11px] text-slate-500">PNG, JPG, Silhouette, or Clipart</p>
           </div>
           <div id="uploadPreview" class="hidden space-y-2">
-            <img id="imgPreview" class="max-h-32 mx-auto rounded shadow border border-slate-700 object-contain" src="" alt="preview">
-            <button id="removeImageBtn" class="text-xs text-red-400 hover:underline">Change image</button>
+            <img id="imgPreview" class="max-h-28 sm:max-h-32 mx-auto rounded shadow border border-slate-700 object-contain" src="" alt="preview">
+            <button id="removeImageBtn" class="text-xs text-red-400 hover:underline py-1">Change image</button>
           </div>
         </div>
         <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
-          <label class="flex items-center space-x-2 cursor-pointer">
-            <input type="checkbox" id="invertInput" class="rounded bg-slate-800 border-slate-700 text-prusa-orange">
+          <label class="flex items-center space-x-2 cursor-pointer py-1">
+            <input type="checkbox" id="invertInput" class="rounded bg-slate-800 border-slate-700 text-prusa-orange w-4 h-4">
             <span>Invert Colors (Dark/Light)</span>
           </label>
         </div>
@@ -91,7 +106,7 @@
 
       <!-- Mode Selector -->
       <section>
-        <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">2. Cutter Mode</label>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">2. Cutter Mode</label>
         <div class="grid grid-cols-2 gap-2">
           <button id="modeCutterBtn" type="button" onclick="setMode('cutter')" class="py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-prusa-orange border-prusa text-white shadow">
             <i data-lucide="scissors" class="w-4 h-4"></i>
@@ -108,16 +123,16 @@
       </section>
 
       <!-- Dimensions & Parameters -->
-      <section class="space-y-4">
+      <section class="space-y-3.5 bg-slate-800/40 p-3.5 rounded-xl border border-slate-800">
         <label class="block text-xs font-semibold uppercase text-slate-400">3. Sizing & Geometry</label>
 
         <!-- Target Cut Size -->
         <div>
           <div class="flex justify-between text-xs mb-1">
             <span class="text-slate-300">Target Inner Cut Size</span>
-            <span id="targetSizeVal" class="font-bold text-prusa-orange">80 mm</span>
+            <span id="targetSizeVal" class="font-bold text-prusa-orange font-mono">80 mm</span>
           </div>
-          <input type="range" id="targetSizeInput" min="30" max="180" step="5" value="80" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+          <input type="range" id="targetSizeInput" min="30" max="180" step="5" value="80" class="w-full h-2 bg-slate-700 rounded-lg cursor-pointer">
           <p class="text-[10px] text-slate-500 mt-0.5">The longest inner dimension of the cut dough.</p>
         </div>
 
@@ -125,33 +140,33 @@
         <div>
           <div class="flex justify-between text-xs mb-1">
             <span class="text-slate-300">Blade Height</span>
-            <span id="bladeHeightVal" class="font-bold text-prusa-orange">12 mm</span>
+            <span id="bladeHeightVal" class="font-bold text-prusa-orange font-mono">12 mm</span>
           </div>
-          <input type="range" id="bladeHeightInput" min="8" max="25" step="1" value="12" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+          <input type="range" id="bladeHeightInput" min="8" max="25" step="1" value="12" class="w-full h-2 bg-slate-700 rounded-lg cursor-pointer">
         </div>
 
         <!-- Handle Rim Width -->
         <div>
           <div class="flex justify-between text-xs mb-1">
             <span class="text-slate-300">Handle Rim Width</span>
-            <span id="handleWidthVal" class="font-bold text-prusa-orange">4.0 mm</span>
+            <span id="handleWidthVal" class="font-bold text-prusa-orange font-mono">4.0 mm</span>
           </div>
-          <input type="range" id="handleWidthInput" min="2" max="6" step="0.5" value="4.0" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+          <input type="range" id="handleWidthInput" min="2" max="6" step="0.5" value="4.0" class="w-full h-2 bg-slate-700 rounded-lg cursor-pointer">
         </div>
 
         <!-- Simplification Tolerance -->
         <div>
           <div class="flex justify-between text-xs mb-1">
             <span class="text-slate-300">Mesh Smoothing</span>
-            <span id="simplifyVal" class="font-bold text-slate-400">0.12 mm</span>
+            <span id="simplifyVal" class="font-bold text-slate-400 font-mono">0.12 mm</span>
           </div>
-          <input type="range" id="simplifyInput" min="0.05" max="0.30" step="0.02" value="0.12" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+          <input type="range" id="simplifyInput" min="0.05" max="0.30" step="0.02" value="0.12" class="w-full h-2 bg-slate-700 rounded-lg cursor-pointer">
         </div>
       </section>
 
-      <!-- Generate Action -->
+      <!-- Generate Action Button -->
       <section class="pt-1">
-        <button id="generateBtn" type="button" onclick="generateModel()" class="w-full py-3 px-4 rounded-xl font-bold text-sm bg-prusa-orange hover-bg-prusa transition text-white shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
+        <button id="generateBtn" type="button" onclick="generateModel()" class="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-prusa-orange hover-bg-prusa transition text-white shadow-lg flex items-center justify-center space-x-2 active:scale-[0.98]">
           <i data-lucide="cpu" class="w-5 h-5"></i>
           <span>Generate 3D Cookie Cutter</span>
         </button>
@@ -159,15 +174,15 @@
 
       <!-- 2D Mask Preview -->
       <section id="maskSection" class="hidden border-t border-slate-800 pt-3">
-        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Detected 2D Mask</label>
-        <img id="maskImg" class="w-full max-h-32 rounded border border-slate-700 object-contain bg-black shadow" src="" alt="mask">
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Detected 2D Mask</label>
+        <img id="maskImg" class="w-full max-h-32 rounded-lg border border-slate-700 object-contain bg-black shadow" src="" alt="mask">
       </section>
 
       <!-- Generation Results & Downloads -->
-      <section id="resultsSection" class="hidden space-y-3 pt-3 border-t border-slate-800">
+      <section id="resultsSection" class="hidden space-y-3 pt-2">
         <div class="bg-slate-800/80 rounded-xl p-3 border border-slate-700 space-y-2 text-xs">
           <div class="font-semibold text-slate-200 flex items-center justify-between">
-            <span>Model Specs</span>
+            <span>Model Specifications</span>
             <span id="watertightBadge" class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">Watertight</span>
           </div>
           <div class="grid grid-cols-2 gap-2 text-slate-400">
@@ -180,11 +195,11 @@
 
         <!-- Downloads Grid -->
         <div class="space-y-2">
-          <a id="downloadStlBtn" href="#" download="cookie_cutter.stl" class="w-full py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold flex items-center justify-center space-x-2 transition text-white shadow">
+          <a id="downloadStlBtn" href="#" download="cookie_cutter.stl" class="w-full py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold flex items-center justify-center space-x-2 transition text-white shadow">
             <i data-lucide="box" class="w-4 h-4"></i>
             <span>Download 3D Model (.STL)</span>
           </a>
-          <a id="downloadGcodeBtn" href="#" download="cookie_cutter.gcode" class="w-full py-2.5 px-3 rounded-lg bg-amber-600 hover:bg-amber-500 text-xs font-semibold flex items-center justify-center space-x-2 transition text-white shadow">
+          <a id="downloadGcodeBtn" href="#" download="cookie_cutter.gcode" class="w-full py-3 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold flex items-center justify-center space-x-2 transition text-white shadow">
             <i data-lucide="file-code" class="w-4 h-4"></i>
             <span>Download Prusa G-code (.GCODE)</span>
           </a>
@@ -192,38 +207,44 @@
       </section>
     </aside>
 
-    <!-- Right 3D Viewport Area -->
-    <div class="flex-1 relative bg-slate-950 flex flex-col">
+    <!-- Right 3D Viewport Panel -->
+    <div id="viewportPanel" class="w-full lg:flex-1 h-[420px] sm:h-[500px] lg:h-full relative bg-slate-950 flex flex-col flex-shrink-0">
+      
       <!-- 3D Canvas Container -->
-      <div id="viewport3d" class="flex-1 w-full h-full cursor-grab active:cursor-grabbing"></div>
+      <div id="viewport3d" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
 
-      <!-- Viewport Controls & HUD Overlay -->
-      <div class="absolute top-4 left-4 pointer-events-none flex flex-col space-y-2">
-        <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-lg p-2.5 text-xs text-slate-300 shadow-lg pointer-events-auto">
-          <div class="font-bold text-slate-200 flex items-center space-x-1.5">
-            <i data-lucide="layers" class="w-4 h-4 text-prusa-orange"></i>
-            <span>Prusa MK3S / MK4 Bed Preview (250 × 210 mm)</span>
+      <!-- Viewport HUD Overlay -->
+      <div class="absolute top-3 left-3 pointer-events-none flex flex-col space-y-1.5 z-10">
+        <div class="bg-slate-900/85 backdrop-blur border border-slate-800 rounded-lg p-2 sm:p-2.5 text-xs text-slate-300 shadow-lg pointer-events-auto">
+          <div class="font-bold text-slate-200 flex items-center space-x-1.5 text-[11px] sm:text-xs">
+            <i data-lucide="layers" class="w-3.5 h-3.5 text-prusa-orange"></i>
+            <span>Prusa MK3S / MK4 Bed (250 × 210 mm)</span>
           </div>
-          <div id="hudDimensions" class="mt-2 text-xs font-mono text-emerald-400 hidden">
+          <div id="hudDimensions" class="mt-1 text-[11px] sm:text-xs font-mono text-emerald-400 hidden">
             X: <span id="hudX">0</span> mm | Y: <span id="hudY">0</span> mm | Z: <span id="hudZ">0</span> mm
           </div>
         </div>
       </div>
 
       <!-- Camera View Presets -->
-      <div class="absolute top-4 right-4 flex space-x-2">
-        <button onclick="resetCamera('perspective')" class="px-2.5 py-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 backdrop-blur border border-slate-800 text-xs text-slate-300 font-medium transition shadow">
-          3D View
+      <div class="absolute top-3 right-3 flex space-x-1.5 z-10">
+        <button onclick="resetCamera('perspective')" class="px-2.5 py-1.5 rounded-lg bg-slate-900/85 hover:bg-slate-800 backdrop-blur border border-slate-800 text-[11px] sm:text-xs text-slate-300 font-medium transition shadow">
+          3D
         </button>
-        <button onclick="resetCamera('top')" class="px-2.5 py-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 backdrop-blur border border-slate-800 text-xs text-slate-300 font-medium transition shadow">
-          Top View
+        <button onclick="resetCamera('top')" class="px-2.5 py-1.5 rounded-lg bg-slate-900/85 hover:bg-slate-800 backdrop-blur border border-slate-800 text-[11px] sm:text-xs text-slate-300 font-medium transition shadow">
+          Top
         </button>
       </div>
 
+      <!-- Floating Touch Instruction Banner on Mobile -->
+      <div class="lg:hidden absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-none bg-slate-900/80 backdrop-blur border border-slate-800 px-3 py-1 rounded-full text-[10px] text-slate-400">
+        1-Finger: Rotate | 2-Finger: Pinch Zoom
+      </div>
+
       <!-- Loading / Processing Spinner Overlay -->
-      <div id="loadingOverlay" class="hidden absolute inset-0 bg-slate-950/70 backdrop-blur-sm flex flex-col items-center justify-center z-50">
-        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-prusa"></div>
-        <p id="loadingStatusText" class="mt-4 text-sm font-semibold text-slate-200">Processing Geometry & Slicing G-code...</p>
+      <div id="loadingOverlay" class="hidden absolute inset-0 bg-slate-950/75 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+        <div class="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-prusa"></div>
+        <p id="loadingStatusText" class="mt-3 text-xs sm:text-sm font-semibold text-slate-200 text-center px-4">Processing Geometry & Slicing G-code...</p>
       </div>
     </div>
   </main>
@@ -236,6 +257,7 @@
     let userToken = null;
     let currentUser = null;
     let config = { google_client_id: '', auth_disabled: true };
+    let currentMobileView = 'controls'; // 'controls' or '3d'
 
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
@@ -270,6 +292,35 @@
     function showError(msg) {
       errorBannerText.innerText = msg;
       errorBanner.classList.remove('hidden');
+    }
+
+    // Responsive Mobile View Switcher
+    function switchMobileView(view) {
+      currentMobileView = view;
+      const tabControls = document.getElementById('mobileTabControls');
+      const tab3D = document.getElementById('mobileTab3D');
+      const controlsPanel = document.getElementById('controlsPanel');
+      const viewportPanel = document.getElementById('viewportPanel');
+
+      if (window.innerWidth >= 1024) {
+        // Desktop: show both
+        controlsPanel.classList.remove('hidden');
+        viewportPanel.classList.remove('hidden');
+        return;
+      }
+
+      if (view === 'controls') {
+        tabControls.className = "flex-1 py-2.5 text-xs font-bold border-b-2 border-prusa-orange text-white flex items-center justify-center space-x-1.5 transition";
+        tab3D.className = "flex-1 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-400 flex items-center justify-center space-x-1.5 transition";
+        controlsPanel.classList.remove('hidden');
+        viewportPanel.classList.add('hidden');
+      } else {
+        tab3D.className = "flex-1 py-2.5 text-xs font-bold border-b-2 border-prusa-orange text-white flex items-center justify-center space-x-1.5 transition";
+        tabControls.className = "flex-1 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-400 flex items-center justify-center space-x-1.5 transition";
+        controlsPanel.classList.add('hidden');
+        viewportPanel.classList.remove('hidden');
+        setTimeout(onWindowResize, 50);
+      }
     }
 
     dropzone.addEventListener('click', () => fileInput.click());
@@ -325,8 +376,8 @@
     const viewportContainer = document.getElementById('viewport3d');
 
     function init3D() {
-      const width = viewportContainer.clientWidth;
-      const height = viewportContainer.clientHeight;
+      const width = viewportContainer.clientWidth || window.innerWidth;
+      const height = viewportContainer.clientHeight || 450;
 
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x0b1120);
@@ -334,10 +385,9 @@
       camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
       resetCamera('perspective');
 
-      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
       renderer.setSize(width, height);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.shadowMap.enabled = true;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       viewportContainer.appendChild(renderer.domElement);
 
       controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -367,12 +417,10 @@
     function createPrusaBed() {
       const bedGroup = new THREE.Group();
 
-      // 10mm grid lines
       const gridHelper = new THREE.GridHelper(250, 25, 0xfa6831, 0x1e293b);
       gridHelper.rotation.x = Math.PI / 2;
       bedGroup.add(gridHelper);
 
-      // Outer Bed Boundary Outline
       const bedGeometry = new THREE.PlaneGeometry(250, 210);
       const bedMaterial = new THREE.MeshBasicMaterial({
         color: 0x141e33,
@@ -402,8 +450,10 @@
     }
 
     function onWindowResize() {
+      if (!viewportContainer) return;
       const width = viewportContainer.clientWidth;
       const height = viewportContainer.clientHeight;
+      if (width === 0 || height === 0) return;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
@@ -415,7 +465,6 @@
       renderer.render(scene, camera);
     }
 
-    // Helper to create crisp 3D floating text sprites for dimensions
     function makeTextSprite(message, color = '#38bdf8') {
       const canvas = document.createElement('canvas');
       canvas.width = 512;
@@ -471,7 +520,6 @@
         const mesh = new THREE.Mesh(geometry, material);
         currentGroup.add(mesh);
 
-        // Bounding Box Helper
         geometry.computeBoundingBox();
         const box = geometry.boundingBox;
         const size = new THREE.Vector3();
@@ -480,7 +528,6 @@
         const boxHelper = new THREE.Box3Helper(box, 0x38bdf8);
         currentGroup.add(boxHelper);
 
-        // Floating 3D Dimension Labels
         const totalX = size.x.toFixed(1);
         const totalY = size.y.toFixed(1);
         const totalZ = size.z.toFixed(1);
@@ -499,11 +546,16 @@
 
         scene.add(currentGroup);
 
-        // Update HUD
         document.getElementById('hudDimensions').classList.remove('hidden');
         document.getElementById('hudX').innerText = totalX;
         document.getElementById('hudY').innerText = totalY;
         document.getElementById('hudZ').innerText = totalZ;
+
+        // On mobile, show green badge and switch to 3D View automatically
+        if (window.innerWidth < 1024) {
+          document.getElementById('mobileBadge').classList.remove('hidden');
+          switchMobileView('3d');
+        }
 
       } catch (err) {
         console.error("Error loading STL:", err);
@@ -511,7 +563,6 @@
       }
     }
 
-    // Generation API Call
     async function generateModel() {
       if (!selectedFile) return showError('Please upload an image first.');
 
@@ -545,20 +596,17 @@
           throw new Error(data.detail || 'Failed to generate 3D model.');
         }
 
-        // Show 2D mask preview if returned
         if (data.preview_b64) {
           maskImg.src = "data:image/png;base64," + data.preview_b64;
           maskSection.classList.remove('hidden');
         }
 
-        // Update Results Section
         resultsSection.classList.remove('hidden');
         document.getElementById('resInnerDims').innerText = `${data.dimensions.inner_width_mm} × ${data.dimensions.inner_height_mm} mm`;
         document.getElementById('resPrintDims').innerText = `${data.stats.print_width_mm} × ${data.stats.print_length_mm} × ${data.stats.print_height_mm} mm`;
         document.getElementById('resTriangles').innerText = data.stats.triangle_count.toLocaleString();
         document.getElementById('resPrintTime').innerText = data.slicing?.estimated_print_time || "Ready";
 
-        // Setup Downloads
         const downloadStlBtn = document.getElementById('downloadStlBtn');
         const downloadGcodeBtn = document.getElementById('downloadGcodeBtn');
         downloadStlBtn.href = data.downloads.stl_url;
@@ -570,7 +618,6 @@
           downloadGcodeBtn.classList.add('hidden');
         }
 
-        // Render 3D Model in Viewport
         await loadSTL(data.downloads.stl_url, data.stats);
 
       } catch (err) {
@@ -580,14 +627,12 @@
       }
     }
 
-    // Google Identity Services (GIS) Auth Integration
     function restoreSession() {
       try {
         const savedToken = localStorage.getItem('google_user_token');
         const savedProfile = localStorage.getItem('google_user_profile');
         if (savedToken && savedProfile) {
           const profile = JSON.parse(savedProfile);
-          // Check expiration
           const exp = profile.exp ? profile.exp * 1000 : 0;
           if (exp > Date.now()) {
             userToken = savedToken;
@@ -678,6 +723,9 @@
     window.onload = () => {
       init3D();
       initAuth();
+      if (window.innerWidth < 1024) {
+        switchMobileView('controls');
+      }
     };
   </script>
 </body>
