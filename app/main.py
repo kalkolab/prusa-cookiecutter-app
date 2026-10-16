@@ -8,7 +8,6 @@ import uuid
 import shutil
 import logging
 from pathlib import Path
-from typing import Optional
 
 from fastapi import (
     FastAPI,
@@ -20,15 +19,9 @@ from fastapi import (
     BackgroundTasks,
 )
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 
-from app.geometry import (
-    preprocess_image,
-    extract_contours,
-    scale_and_center_polygons,
-    generate_cookie_cutter_mesh,
-)
-from app.slicer import slice_stl_to_gcode
+from app.geometry import image_to_cookie_cutter
+from app.slicer import slice_stl_to_gcode, find_prusa_slicer_binary
 from app.auth import verify_user_token, is_auth_enabled, GOOGLE_CLIENT_ID
 
 logging.basicConfig(level=logging.INFO)
@@ -42,7 +35,6 @@ CONFIG_INI_PATH = ROOT_DIR / "slicer_config.ini"
 
 app = FastAPI(title="Prusa Cookie Cutter & Stamp Studio")
 
-# Mount static and templates
 TEMPLATES_DIR = BASE_DIR / "templates"
 
 
@@ -72,6 +64,15 @@ async def health_check():
     return {"status": "healthy", "service": "prusa-cookiecutter-studio"}
 
 
+@app.get("/api/status")
+async def get_system_status():
+    slicer = find_prusa_slicer_binary()
+    return {
+        "prusaslicer_available": slicer is not None,
+        "binary": slicer,
+    }
+
+
 @app.get("/api/config")
 async def get_client_config():
     return {
@@ -87,18 +88,16 @@ async def generate_model(
     target_size_mm: float = Form(80.0),
     blade_height: float = Form(12.0),
     handle_width: float = Form(4.0),
-    simplify_tol: float = Form(0.15),
+    simplify_tol: float = Form(0.12),
     invert: bool = Form(False),
     stamp_mode: bool = Form(False),
     user_info: dict = Depends(verify_user_token),
 ):
     """
-    1. Preprocesses image (horizontal mirror for correct stamp orientation).
-    2. Extracts contours and scales to target_size_mm.
-    3. Extrudes 3-tier profile + stamp plate/ribs to 3D mesh.
-    4. Slices STL to G-code via PrusaSlicer CLI.
+    1. Preprocesses image (horizontal mirror for correct imprint).
+    2. Extracts contours, normalizes, scales, and extrudes 3-tier cutter & optional stamp.
+    3. Exports STL and runs headless PrusaSlicer.
     """
-    # Clean up older jobs in background
     background_tasks.add_task(cleanup_old_jobs)
 
     if not image.content_type.startswith("image/"):
@@ -109,35 +108,18 @@ async def generate_model(
         raise HTTPException(status_code=400, detail="Image size exceeds 15MB limit.")
 
     try:
-        # 1. OpenCV Preprocessing
-        _, binary_mask = preprocess_image(
-            content,
-            max_px=1000,
+        mode_str = "stamp" if stamp_mode else "outline"
+        mesh, stats, preview_b64 = image_to_cookie_cutter(
+            image_bytes=content,
+            target_size_mm=target_size_mm,
+            blade_height_mm=blade_height,
+            blade_thick_mm=0.86,
+            handle_width_mm=handle_width,
+            mode=mode_str,
             invert=invert,
+            simplify_tol=simplify_tol,
         )
 
-        # 2. Extract and Scale Contours
-        polygons = extract_contours(binary_mask, simplify_tol=simplify_tol)
-        scaled_outer, scaled_details, scale, dims = scale_and_center_polygons(
-            polygons,
-            target_size_mm=target_size_mm
-        )
-
-        # 3. Extrude 3D Mesh
-        mesh, stats = generate_cookie_cutter_mesh(
-            outer_poly=scaled_outer,
-            detail_polys=scaled_details,
-            blade_height=blade_height,
-            blade_width=0.86,
-            collar_height=min(4.0, blade_height * 0.4),
-            collar_width=1.60,
-            handle_height=2.0,
-            handle_width=handle_width,
-            stamp_mode=stamp_mode,
-            stamp_relief=2.50,
-        )
-
-        # 4. Save to temporary Job Directory
         job_id = str(uuid.uuid4())
         job_dir = JOBS_DIR / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
@@ -146,7 +128,6 @@ async def generate_model(
         stl_path = job_dir / stl_filename
         mesh.export(str(stl_path))
 
-        # 5. Headless PrusaSlicer Slicing
         gcode_filename = "cookie_cutter.gcode"
         gcode_path = job_dir / gcode_filename
 
@@ -159,15 +140,22 @@ async def generate_model(
             timeout_seconds=45,
         )
 
+        dims = {
+            "inner_width_mm": stats.get("inner_width_mm", target_size_mm),
+            "inner_height_mm": stats.get("inner_height_mm", target_size_mm),
+            "target_size_mm": target_size_mm,
+        }
+
         return JSONResponse(
             content={
                 "job_id": job_id,
+                "preview_b64": preview_b64,
                 "dimensions": dims,
                 "stats": stats,
                 "slicing": slicing_result,
                 "downloads": {
                     "stl_url": f"/api/download/{job_id}/{stl_filename}",
-                    "gcode_url": f"/api/download/{job_id}/{gcode_filename}",
+                    "gcode_url": f"/api/download/{job_id}/{gcode_filename}" if slicing_result.get("gcode_generated") else None,
                 },
                 "user": user_info.get("email"),
             }
@@ -181,13 +169,11 @@ async def generate_model(
 
 
 @app.get("/api/download/{job_id}/{filename}")
-async def download_file(
-    job_id: str,
-    filename: str,
-    user_info: dict = Depends(verify_user_token)
-):
-    """Safely serves generated STL or G-code file."""
-    # Prevent path traversal
+async def download_file(job_id: str, filename: str):
+    """
+    Serves generated STL or G-code file by unguessable UUID.
+    Does not require Authorization header so browser <a> tags and Three.js loader work smoothly.
+    """
     safe_job_id = Path(job_id).name
     safe_filename = Path(filename).name
 

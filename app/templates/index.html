@@ -50,10 +50,21 @@
     </div>
   </header>
 
+  <!-- Error Notification Banner -->
+  <div id="errorBanner" class="hidden bg-red-950/90 border-b border-red-800 px-6 py-2.5 text-xs text-red-200 flex items-center justify-between z-20">
+    <div class="flex items-center space-x-2">
+      <i data-lucide="alert-circle" class="w-4 h-4 text-red-400 flex-shrink-0"></i>
+      <span id="errorBannerText">An error occurred</span>
+    </div>
+    <button onclick="document.getElementById('errorBanner').classList.add('hidden')" class="text-red-400 hover:text-white">
+      <i data-lucide="x" class="w-4 h-4"></i>
+    </button>
+  </div>
+
   <!-- Main Body Layout -->
   <main class="flex-1 flex overflow-hidden">
     <!-- Left Sidebar: Controls & Inputs -->
-    <aside class="w-96 bg-slate-900/95 border-r border-slate-800 flex flex-col h-full overflow-y-auto p-5 space-y-5">
+    <aside class="w-96 bg-slate-900/95 border-r border-slate-800 flex flex-col h-full overflow-y-auto p-5 space-y-4">
       
       <!-- Upload Dropzone -->
       <section>
@@ -82,11 +93,11 @@
       <section>
         <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">2. Cutter Mode</label>
         <div class="grid grid-cols-2 gap-2">
-          <button id="modeCutterBtn" onclick="setMode('cutter')" class="py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-prusa-orange border-prusa text-white shadow">
+          <button id="modeCutterBtn" type="button" onclick="setMode('cutter')" class="py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-prusa-orange border-prusa text-white shadow">
             <i data-lucide="scissors" class="w-4 h-4"></i>
             <span>Cutter Only</span>
           </button>
-          <button id="modeStampBtn" onclick="setMode('stamp')" class="py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600">
+          <button id="modeStampBtn" type="button" onclick="setMode('stamp')" class="py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600">
             <i data-lucide="stamp" class="w-4 h-4"></i>
             <span>Cutter + Stamp</span>
           </button>
@@ -106,7 +117,7 @@
             <span class="text-slate-300">Target Inner Cut Size</span>
             <span id="targetSizeVal" class="font-bold text-prusa-orange">80 mm</span>
           </div>
-          <input type="range" id="targetSizeInput" min="40" max="180" step="5" value="80" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+          <input type="range" id="targetSizeInput" min="30" max="180" step="5" value="80" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
           <p class="text-[10px] text-slate-500 mt-0.5">The longest inner dimension of the cut dough.</p>
         </div>
 
@@ -132,22 +143,28 @@
         <div>
           <div class="flex justify-between text-xs mb-1">
             <span class="text-slate-300">Mesh Smoothing</span>
-            <span id="simplifyVal" class="font-bold text-slate-400">0.15 mm</span>
+            <span id="simplifyVal" class="font-bold text-slate-400">0.12 mm</span>
           </div>
-          <input type="range" id="simplifyInput" min="0.05" max="0.40" step="0.05" value="0.15" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
+          <input type="range" id="simplifyInput" min="0.05" max="0.30" step="0.02" value="0.12" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer">
         </div>
       </section>
 
       <!-- Generate Action -->
-      <section class="pt-2">
-        <button id="generateBtn" onclick="generateModel()" class="w-full py-3 px-4 rounded-xl font-bold text-sm bg-prusa-orange hover-bg-prusa transition text-white shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
+      <section class="pt-1">
+        <button id="generateBtn" type="button" onclick="generateModel()" class="w-full py-3 px-4 rounded-xl font-bold text-sm bg-prusa-orange hover-bg-prusa transition text-white shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
           <i data-lucide="cpu" class="w-5 h-5"></i>
-          <span>Generate STL & Slice G-code</span>
+          <span>Generate 3D Cookie Cutter</span>
         </button>
       </section>
 
+      <!-- 2D Mask Preview -->
+      <section id="maskSection" class="hidden border-t border-slate-800 pt-3">
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Detected 2D Mask</label>
+        <img id="maskImg" class="w-full max-h-32 rounded border border-slate-700 object-contain bg-black shadow" src="" alt="mask">
+      </section>
+
       <!-- Generation Results & Downloads -->
-      <section id="resultsSection" class="hidden space-y-4 pt-3 border-t border-slate-800">
+      <section id="resultsSection" class="hidden space-y-3 pt-3 border-t border-slate-800">
         <div class="bg-slate-800/80 rounded-xl p-3 border border-slate-700 space-y-2 text-xs">
           <div class="font-semibold text-slate-200 flex items-center justify-between">
             <span>Model Specs</span>
@@ -163,13 +180,13 @@
 
         <!-- Downloads Grid -->
         <div class="space-y-2">
-          <a id="downloadStlBtn" href="#" class="w-full py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold flex items-center justify-center space-x-2 transition text-slate-200">
-            <i data-lucide="box" class="w-4 h-4 text-prusa-orange"></i>
+          <a id="downloadStlBtn" href="#" download="cookie_cutter.stl" class="w-full py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold flex items-center justify-center space-x-2 transition text-white shadow">
+            <i data-lucide="box" class="w-4 h-4"></i>
             <span>Download 3D Model (.STL)</span>
           </a>
-          <a id="downloadGcodeBtn" href="#" class="w-full py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold flex items-center justify-center space-x-2 transition text-slate-200">
-            <i data-lucide="file-code" class="w-4 h-4 text-emerald-400"></i>
-            <span>Download Sliced G-code (.GCODE)</span>
+          <a id="downloadGcodeBtn" href="#" download="cookie_cutter.gcode" class="w-full py-2.5 px-3 rounded-lg bg-amber-600 hover:bg-amber-500 text-xs font-semibold flex items-center justify-center space-x-2 transition text-white shadow">
+            <i data-lucide="file-code" class="w-4 h-4"></i>
+            <span>Download Prusa G-code (.GCODE)</span>
           </a>
         </div>
       </section>
@@ -185,11 +202,10 @@
         <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-lg p-2.5 text-xs text-slate-300 shadow-lg pointer-events-auto">
           <div class="font-bold text-slate-200 flex items-center space-x-1.5">
             <i data-lucide="layers" class="w-4 h-4 text-prusa-orange"></i>
-            <span>Prusa MK3S / MK4 Bed Preview</span>
+            <span>Prusa MK3S / MK4 Bed Preview (250 × 210 mm)</span>
           </div>
-          <p class="text-[11px] text-slate-400 mt-1">250 × 210 mm Bed Grid (10 mm spacing)</p>
           <div id="hudDimensions" class="mt-2 text-xs font-mono text-emerald-400 hidden">
-            X: <span id="hudX">0</span>mm | Y: <span id="hudY">0</span>mm | Z: <span id="hudZ">0</span>mm
+            X: <span id="hudX">0</span> mm | Y: <span id="hudY">0</span> mm | Z: <span id="hudZ">0</span> mm
           </div>
         </div>
       </div>
@@ -197,7 +213,7 @@
       <!-- Camera View Presets -->
       <div class="absolute top-4 right-4 flex space-x-2">
         <button onclick="resetCamera('perspective')" class="px-2.5 py-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 backdrop-blur border border-slate-800 text-xs text-slate-300 font-medium transition shadow">
-          3D Perspective
+          3D View
         </button>
         <button onclick="resetCamera('top')" class="px-2.5 py-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 backdrop-blur border border-slate-800 text-xs text-slate-300 font-medium transition shadow">
           Top View
@@ -215,14 +231,12 @@
   <script>
     lucide.createIcons();
 
-    // State Variables
     let selectedFile = null;
-    let currentMode = 'cutter'; // 'cutter' or 'stamp'
+    let currentMode = 'cutter';
     let userToken = null;
     let currentUser = null;
     let config = { google_client_id: '', auth_disabled: true };
 
-    // DOM Elements
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
     const uploadPlaceholder = document.getElementById('uploadPlaceholder');
@@ -241,16 +255,23 @@
     const invertInput = document.getElementById('invertInput');
 
     const resultsSection = document.getElementById('resultsSection');
+    const maskSection = document.getElementById('maskSection');
+    const maskImg = document.getElementById('maskImg');
     const loadingOverlay = document.getElementById('loadingOverlay');
     const loadingStatusText = document.getElementById('loadingStatusText');
+    const errorBanner = document.getElementById('errorBanner');
+    const errorBannerText = document.getElementById('errorBannerText');
 
-    // UI Input Event Listeners
     targetSizeInput.addEventListener('input', (e) => targetSizeVal.innerText = `${e.target.value} mm`);
     bladeHeightInput.addEventListener('input', (e) => bladeHeightVal.innerText = `${e.target.value} mm`);
     handleWidthInput.addEventListener('input', (e) => handleWidthVal.innerText = `${e.target.value} mm`);
     simplifyInput.addEventListener('input', (e) => simplifyVal.innerText = `${e.target.value} mm`);
 
-    // Drag and Drop Handling
+    function showError(msg) {
+      errorBannerText.innerText = msg;
+      errorBanner.classList.remove('hidden');
+    }
+
     dropzone.addEventListener('click', () => fileInput.click());
     dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('border-prusa-orange'); });
     dropzone.addEventListener('dragleave', () => dropzone.classList.remove('border-prusa-orange'));
@@ -271,7 +292,7 @@
     });
 
     function handleFile(file) {
-      if (!file.type.startsWith('image/')) return alert('Please upload a valid image (PNG or JPG)');
+      if (!file.type.startsWith('image/')) return showError('Please upload a valid image (PNG, JPG, WebP)');
       selectedFile = file;
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -300,7 +321,7 @@
     }
 
     // Three.js 3D Viewport Setup
-    let scene, camera, renderer, controls, currentMesh, boxHelper;
+    let scene, camera, renderer, controls, currentGroup;
     const viewportContainer = document.getElementById('viewport3d');
 
     function init3D() {
@@ -325,15 +346,15 @@
       controls.target.set(0, 0, 0);
 
       // Lighting
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
       scene.add(ambientLight);
 
-      const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
-      dirLight1.position.set(100, 150, 200);
+      const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.85);
+      dirLight1.position.set(100, -100, 200);
       scene.add(dirLight1);
 
       const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
-      dirLight2.position.set(-100, -100, 100);
+      dirLight2.position.set(-100, 100, 100);
       scene.add(dirLight2);
 
       // Prusa Bed Visualizer (MK3S/MK4 bed: 250 x 210 mm)
@@ -344,12 +365,11 @@
     }
 
     function createPrusaBed() {
-      // Bed plate dimensions: 250mm x 210mm
       const bedGroup = new THREE.Group();
 
       // 10mm grid lines
       const gridHelper = new THREE.GridHelper(250, 25, 0xfa6831, 0x1e293b);
-      gridHelper.rotation.x = Math.PI / 2; // Flat on XY plane (where Z is up)
+      gridHelper.rotation.x = Math.PI / 2;
       bedGroup.add(gridHelper);
 
       // Outer Bed Boundary Outline
@@ -360,10 +380,9 @@
         depthWrite: false
       });
       const bedPlane = new THREE.Mesh(bedGeometry, bedMaterial);
-      bedPlane.position.z = -0.05; // Slightly below Z=0
+      bedPlane.position.z = -0.05;
       bedGroup.add(bedPlane);
 
-      // Border outline
       const edges = new THREE.EdgesGeometry(bedGeometry);
       const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x334155, linewidth: 2 }));
       bedGroup.add(line);
@@ -376,7 +395,7 @@
         camera.position.set(0, 0, 260);
         camera.up.set(0, 1, 0);
       } else {
-        camera.position.set(0, -180, 140);
+        camera.position.set(0, -160, 130);
         camera.up.set(0, 0, 1);
       }
       if (controls) controls.target.set(0, 0, 0);
@@ -396,41 +415,107 @@
       renderer.render(scene, camera);
     }
 
-    function loadSTL(url, extents) {
-      const loader = new THREE.STLLoader();
-      loader.load(url, function (geometry) {
-        if (currentMesh) scene.remove(currentMesh);
-        if (boxHelper) scene.remove(boxHelper);
+    // Helper to create crisp 3D floating text sprites for dimensions
+    function makeTextSprite(message, color = '#38bdf8') {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 4;
+      if (ctx.roundRect) {
+        ctx.roundRect(10, 20, 492, 88, 16);
+      } else {
+        ctx.rect(10, 20, 492, 88);
+      }
+      ctx.fill();
+      ctx.stroke();
+      ctx.font = 'bold 36px monospace';
+      ctx.fillStyle = color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(message, 256, 64);
+      const texture = new THREE.CanvasTexture(canvas);
+      const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.scale.set(40, 10, 1);
+      return sprite;
+    }
 
-        // Compute normals for smooth shading
+    async function loadSTL(url, stats) {
+      try {
+        const headers = {};
+        if (userToken) {
+          headers['Authorization'] = `Bearer ${userToken}`;
+        }
+        const resp = await fetch(url, { headers });
+        if (!resp.ok) {
+          throw new Error(`Failed to load STL (HTTP ${resp.status})`);
+        }
+        const buffer = await resp.arrayBuffer();
+
+        const loader = new THREE.STLLoader();
+        const geometry = loader.parse(buffer);
         geometry.computeVertexNormals();
 
-        // Prusa Orange matte plastic material
+        if (currentGroup) scene.remove(currentGroup);
+        currentGroup = new THREE.Group();
+
         const material = new THREE.MeshStandardMaterial({
           color: 0xfa6831,
           roughness: 0.35,
           metalness: 0.1,
         });
 
-        currentMesh = new THREE.Mesh(geometry, material);
-        scene.add(currentMesh);
+        const mesh = new THREE.Mesh(geometry, material);
+        currentGroup.add(mesh);
 
         // Bounding Box Helper
-        boxHelper = new THREE.Box3Helper(new THREE.Box3().setFromObject(currentMesh), 0x10b981);
-        scene.add(boxHelper);
+        geometry.computeBoundingBox();
+        const box = geometry.boundingBox;
+        const size = new THREE.Vector3();
+        box.getSize(size);
+
+        const boxHelper = new THREE.Box3Helper(box, 0x38bdf8);
+        currentGroup.add(boxHelper);
+
+        // Floating 3D Dimension Labels
+        const totalX = size.x.toFixed(1);
+        const totalY = size.y.toFixed(1);
+        const totalZ = size.z.toFixed(1);
+
+        const labelX = makeTextSprite(`X: ${totalX} mm`, '#38bdf8');
+        labelX.position.set(0, box.min.y - 12, 0);
+        currentGroup.add(labelX);
+
+        const labelY = makeTextSprite(`Y: ${totalY} mm`, '#4ade80');
+        labelY.position.set(box.max.x + 22, 0, 0);
+        currentGroup.add(labelY);
+
+        const labelZ = makeTextSprite(`Z: ${totalZ} mm`, '#facc15');
+        labelZ.position.set(box.min.x - 18, box.max.y, size.z / 2);
+        currentGroup.add(labelZ);
+
+        scene.add(currentGroup);
 
         // Update HUD
         document.getElementById('hudDimensions').classList.remove('hidden');
-        document.getElementById('hudX').innerText = extents.print_width_mm;
-        document.getElementById('hudY').innerText = extents.print_length_mm;
-        document.getElementById('hudZ').innerText = extents.print_height_mm;
-      });
+        document.getElementById('hudX').innerText = totalX;
+        document.getElementById('hudY').innerText = totalY;
+        document.getElementById('hudZ').innerText = totalZ;
+
+      } catch (err) {
+        console.error("Error loading STL:", err);
+        showError("Could not render 3D preview: " + err.message);
+      }
     }
 
     // Generation API Call
     async function generateModel() {
-      if (!selectedFile) return alert('Please upload an image first.');
+      if (!selectedFile) return showError('Please upload an image first.');
 
+      errorBanner.classList.add('hidden');
       loadingOverlay.classList.remove('hidden');
       loadingStatusText.innerText = "Extracting contours & extruding 3D geometry...";
 
@@ -460,32 +545,36 @@
           throw new Error(data.detail || 'Failed to generate 3D model.');
         }
 
+        // Show 2D mask preview if returned
+        if (data.preview_b64) {
+          maskImg.src = "data:image/png;base64," + data.preview_b64;
+          maskSection.classList.remove('hidden');
+        }
+
         // Update Results Section
         resultsSection.classList.remove('hidden');
         document.getElementById('resInnerDims').innerText = `${data.dimensions.inner_width_mm} × ${data.dimensions.inner_height_mm} mm`;
         document.getElementById('resPrintDims').innerText = `${data.stats.print_width_mm} × ${data.stats.print_length_mm} × ${data.stats.print_height_mm} mm`;
         document.getElementById('resTriangles').innerText = data.stats.triangle_count.toLocaleString();
-        document.getElementById('resPrintTime').innerText = data.slicing.estimated_print_time || "N/A";
+        document.getElementById('resPrintTime').innerText = data.slicing?.estimated_print_time || "Ready";
 
         // Setup Downloads
         const downloadStlBtn = document.getElementById('downloadStlBtn');
         const downloadGcodeBtn = document.getElementById('downloadGcodeBtn');
         downloadStlBtn.href = data.downloads.stl_url;
-        downloadGcodeBtn.href = data.downloads.gcode_url;
 
-        if (!data.slicing.gcode_generated) {
-          downloadGcodeBtn.classList.add('opacity-50', 'pointer-events-none');
-          downloadGcodeBtn.title = data.slicing.error || "G-code slicing unavailable";
+        if (data.downloads.gcode_url) {
+          downloadGcodeBtn.href = data.downloads.gcode_url;
+          downloadGcodeBtn.classList.remove('hidden');
         } else {
-          downloadGcodeBtn.classList.remove('opacity-50', 'pointer-events-none');
-          downloadGcodeBtn.title = "";
+          downloadGcodeBtn.classList.add('hidden');
         }
 
         // Render 3D Model in Viewport
-        loadSTL(data.downloads.stl_url, data.stats);
+        await loadSTL(data.downloads.stl_url, data.stats);
 
       } catch (err) {
-        alert(err.message);
+        showError(err.message);
       } finally {
         loadingOverlay.classList.add('hidden');
       }
@@ -521,7 +610,6 @@
 
     function handleCredentialResponse(response) {
       userToken = response.credential;
-      // Decode JWT payload to show user info
       const base64Url = userToken.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
       const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
@@ -544,7 +632,6 @@
       document.getElementById('userProfile').classList.add('hidden');
     }
 
-    // Initialize on load
     window.onload = () => {
       init3D();
       initAuth();
