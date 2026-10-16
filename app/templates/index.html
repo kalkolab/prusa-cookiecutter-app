@@ -581,6 +581,35 @@
     }
 
     // Google Identity Services (GIS) Auth Integration
+    function restoreSession() {
+      try {
+        const savedToken = localStorage.getItem('google_user_token');
+        const savedProfile = localStorage.getItem('google_user_profile');
+        if (savedToken && savedProfile) {
+          const profile = JSON.parse(savedProfile);
+          // Check expiration
+          const exp = profile.exp ? profile.exp * 1000 : 0;
+          if (exp > Date.now()) {
+            userToken = savedToken;
+            currentUser = profile;
+            document.getElementById('g_id_signin_container').classList.add('hidden');
+            document.getElementById('userProfile').classList.remove('hidden');
+            document.getElementById('userName').innerText = currentUser.name || currentUser.email;
+            if (currentUser.picture) {
+              document.getElementById('userAvatar').src = currentUser.picture;
+            }
+            return true;
+          } else {
+            localStorage.removeItem('google_user_token');
+            localStorage.removeItem('google_user_profile');
+          }
+        }
+      } catch (e) {
+        console.error("Session restore error:", e);
+      }
+      return false;
+    }
+
     async function initAuth() {
       try {
         const res = await fetch('/api/config');
@@ -593,15 +622,21 @@
           return;
         }
 
+        const restored = restoreSession();
+
         if (config.google_client_id) {
           google.accounts.id.initialize({
             client_id: config.google_client_id,
-            callback: handleCredentialResponse
+            callback: handleCredentialResponse,
+            auto_select: true
           });
           google.accounts.id.renderButton(
             document.getElementById('g_id_signin_container'),
             { theme: 'outline', size: 'medium', shape: 'pill' }
           );
+          if (!restored) {
+            google.accounts.id.prompt();
+          }
         }
       } catch (e) {
         console.error("Auth init error:", e);
@@ -617,6 +652,9 @@
       }).join(''));
 
       currentUser = JSON.parse(jsonPayload);
+      localStorage.setItem('google_user_token', userToken);
+      localStorage.setItem('google_user_profile', JSON.stringify(currentUser));
+
       document.getElementById('g_id_signin_container').classList.add('hidden');
       document.getElementById('userProfile').classList.remove('hidden');
       document.getElementById('userName').innerText = currentUser.name || currentUser.email;
@@ -628,6 +666,11 @@
     function signOut() {
       userToken = null;
       currentUser = null;
+      localStorage.removeItem('google_user_token');
+      localStorage.removeItem('google_user_profile');
+      if (window.google && google.accounts && google.accounts.id) {
+        google.accounts.id.disableAutoSelect();
+      }
       document.getElementById('g_id_signin_container').classList.remove('hidden');
       document.getElementById('userProfile').classList.add('hidden');
     }
