@@ -33,7 +33,7 @@
       </div>
       <div>
         <h1 class="text-sm sm:text-base lg:text-lg font-bold tracking-tight">Cookie Cutter Studio</h1>
-        <p class="text-[10px] sm:text-xs text-slate-400 hidden sm:block">Headless Slicing for Prusa MK3S+ / MK4</p>
+        <p class="text-[10px] sm:text-xs text-slate-400 hidden sm:block">Headless Slicing for Prusa MK4S, MK4, MK3S+, MINI+</p>
       </div>
     </div>
 
@@ -55,7 +55,7 @@
   <div class="lg:hidden flex border-b border-slate-800 bg-slate-900 sticky top-0 z-20 flex-shrink-0">
     <button id="mobileTabControls" onclick="switchMobileView('controls')" class="flex-1 py-2.5 text-xs font-bold border-b-2 border-prusa-orange text-white flex items-center justify-center space-x-1.5 transition">
       <i data-lucide="sliders" class="w-4 h-4 text-prusa-orange"></i>
-      <span>1. Design & Upload</span>
+      <span>1. Design & Printer</span>
     </button>
     <button id="mobileTab3D" onclick="switchMobileView('3d')" class="flex-1 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-400 flex items-center justify-center space-x-1.5 transition">
       <i data-lucide="box" class="w-4 h-4"></i>
@@ -122,9 +122,23 @@
         </p>
       </section>
 
+      <!-- Target Printer Selector -->
+      <section>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">3. Target Prusa Printer (G-code)</label>
+        <div class="relative">
+          <select id="printerSelect" onchange="onPrinterChange()" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2.5 text-xs text-slate-200 focus:border-prusa focus:outline-none appearance-none cursor-pointer">
+            <option value="mk4s" selected>Prusa MK4S (0.4mm nozzle · 250×210 mm)</option>
+            <option value="mk4">Prusa MK4 (0.4mm nozzle · 250×210 mm)</option>
+            <option value="mk3s">Prusa MK3S+ (0.4mm nozzle · 250×210 mm)</option>
+            <option value="mini">Prusa MINI+ (0.4mm nozzle · 180×180 mm)</option>
+          </select>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none"></i>
+        </div>
+      </section>
+
       <!-- Dimensions & Parameters -->
       <section class="space-y-3.5 bg-slate-800/40 p-3.5 rounded-xl border border-slate-800">
-        <label class="block text-xs font-semibold uppercase text-slate-400">3. Sizing & Geometry</label>
+        <label class="block text-xs font-semibold uppercase text-slate-400">4. Sizing & Geometry</label>
 
         <!-- Target Cut Size -->
         <div>
@@ -168,7 +182,7 @@
       <section class="pt-1">
         <button id="generateBtn" type="button" onclick="generateModel()" class="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-prusa-orange hover-bg-prusa transition text-white shadow-lg flex items-center justify-center space-x-2 active:scale-[0.98]">
           <i data-lucide="cpu" class="w-5 h-5"></i>
-          <span>Generate 3D Cookie Cutter</span>
+          <span>Generate STL & Slice G-code</span>
         </button>
       </section>
 
@@ -188,9 +202,16 @@
           <div class="grid grid-cols-2 gap-2 text-slate-400">
             <div>Inner Cut: <span id="resInnerDims" class="text-slate-200 font-mono">--</span></div>
             <div>Print Size: <span id="resPrintDims" class="text-slate-200 font-mono">--</span></div>
-            <div>Triangles: <span id="resTriangles" class="text-slate-200 font-mono">--</span></div>
+            <div>Printer: <span id="resPrinter" class="text-prusa-orange font-semibold font-mono">MK4S</span></div>
             <div>Print Time: <span id="resPrintTime" class="text-slate-200 font-mono">--</span></div>
+            <div>Filament: <span id="resFilament" class="text-slate-200 font-mono">--</span></div>
+            <div>Triangles: <span id="resTriangles" class="text-slate-200 font-mono">--</span></div>
           </div>
+        </div>
+
+        <!-- Slicing Error / Warning (if any) -->
+        <div id="slicingNotice" class="hidden bg-amber-950/60 border border-amber-800 rounded-lg p-2.5 text-xs text-amber-200">
+          <span id="slicingNoticeText"></span>
         </div>
 
         <!-- Downloads Grid -->
@@ -199,9 +220,9 @@
             <i data-lucide="box" class="w-4 h-4"></i>
             <span>Download 3D Model (.STL)</span>
           </a>
-          <a id="downloadGcodeBtn" href="#" download="cookie_cutter.gcode" class="w-full py-3 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold flex items-center justify-center space-x-2 transition text-white shadow">
+          <a id="downloadGcodeBtn" href="#" download="cookie_cutter_mk4s.gcode" class="w-full py-3 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold flex items-center justify-center space-x-2 transition text-white shadow">
             <i data-lucide="file-code" class="w-4 h-4"></i>
-            <span>Download Prusa G-code (.GCODE)</span>
+            <span id="downloadGcodeText">Download Prusa MK4S G-code (.GCODE)</span>
           </a>
         </div>
       </section>
@@ -218,7 +239,7 @@
         <div class="bg-slate-900/85 backdrop-blur border border-slate-800 rounded-lg p-2 sm:p-2.5 text-xs text-slate-300 shadow-lg pointer-events-auto">
           <div class="font-bold text-slate-200 flex items-center space-x-1.5 text-[11px] sm:text-xs">
             <i data-lucide="layers" class="w-3.5 h-3.5 text-prusa-orange"></i>
-            <span>Prusa MK3S / MK4 Bed (250 × 210 mm)</span>
+            <span id="hudBedTitle">Prusa MK4S Bed (250 × 210 mm)</span>
           </div>
           <div id="hudDimensions" class="mt-1 text-[11px] sm:text-xs font-mono text-emerald-400 hidden">
             X: <span id="hudX">0</span> mm | Y: <span id="hudY">0</span> mm | Z: <span id="hudZ">0</span> mm
@@ -257,7 +278,7 @@
     let userToken = null;
     let currentUser = null;
     let config = { google_client_id: '', auth_disabled: true };
-    let currentMobileView = 'controls'; // 'controls' or '3d'
+    let currentMobileView = 'controls';
 
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
@@ -266,6 +287,7 @@
     const imgPreview = document.getElementById('imgPreview');
     const removeImageBtn = document.getElementById('removeImageBtn');
 
+    const printerSelect = document.getElementById('printerSelect');
     const targetSizeInput = document.getElementById('targetSizeInput');
     const targetSizeVal = document.getElementById('targetSizeVal');
     const bladeHeightInput = document.getElementById('bladeHeightInput');
@@ -283,6 +305,8 @@
     const loadingStatusText = document.getElementById('loadingStatusText');
     const errorBanner = document.getElementById('errorBanner');
     const errorBannerText = document.getElementById('errorBannerText');
+    const slicingNotice = document.getElementById('slicingNotice');
+    const slicingNoticeText = document.getElementById('slicingNoticeText');
 
     targetSizeInput.addEventListener('input', (e) => targetSizeVal.innerText = `${e.target.value} mm`);
     bladeHeightInput.addEventListener('input', (e) => bladeHeightVal.innerText = `${e.target.value} mm`);
@@ -294,7 +318,6 @@
       errorBanner.classList.remove('hidden');
     }
 
-    // Responsive Mobile View Switcher
     function switchMobileView(view) {
       currentMobileView = view;
       const tabControls = document.getElementById('mobileTabControls');
@@ -303,7 +326,6 @@
       const viewportPanel = document.getElementById('viewportPanel');
 
       if (window.innerWidth >= 1024) {
-        // Desktop: show both
         controlsPanel.classList.remove('hidden');
         viewportPanel.classList.remove('hidden');
         return;
@@ -372,7 +394,7 @@
     }
 
     // Three.js 3D Viewport Setup
-    let scene, camera, renderer, controls, currentGroup;
+    let scene, camera, renderer, controls, currentGroup, bedGroup;
     const viewportContainer = document.getElementById('viewport3d');
 
     function init3D() {
@@ -395,7 +417,6 @@
       controls.dampingFactor = 0.05;
       controls.target.set(0, 0, 0);
 
-      // Lighting
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
       scene.add(ambientLight);
 
@@ -407,21 +428,40 @@
       dirLight2.position.set(-100, 100, 100);
       scene.add(dirLight2);
 
-      // Prusa Bed Visualizer (MK3S/MK4 bed: 250 x 210 mm)
-      createPrusaBed();
+      updateBed(printerSelect.value);
 
       window.addEventListener('resize', onWindowResize);
       animate();
     }
 
-    function createPrusaBed() {
-      const bedGroup = new THREE.Group();
+    function onPrinterChange() {
+      const selected = printerSelect.value;
+      updateBed(selected);
+      const btnText = document.getElementById('downloadGcodeText');
+      if (btnText) {
+        btnText.innerText = `Download Prusa ${selected.toUpperCase()} G-code (.GCODE)`;
+      }
+    }
 
-      const gridHelper = new THREE.GridHelper(250, 25, 0xfa6831, 0x1e293b);
+    function updateBed(printer) {
+      if (bedGroup) scene.remove(bedGroup);
+      bedGroup = new THREE.Group();
+
+      const isMini = printer === 'mini';
+      const width = isMini ? 180 : 250;
+      const height = isMini ? 180 : 210;
+      const divisions = isMini ? 18 : 25;
+
+      const title = document.getElementById('hudBedTitle');
+      if (title) {
+        title.innerText = isMini ? "Prusa MINI+ Bed (180 × 180 mm)" : `Prusa ${printer.toUpperCase()} Bed (${width} × ${height} mm)`;
+      }
+
+      const gridHelper = new THREE.GridHelper(width, divisions, 0xfa6831, 0x1e293b);
       gridHelper.rotation.x = Math.PI / 2;
       bedGroup.add(gridHelper);
 
-      const bedGeometry = new THREE.PlaneGeometry(250, 210);
+      const bedGeometry = new THREE.PlaneGeometry(width, height);
       const bedMaterial = new THREE.MeshBasicMaterial({
         color: 0x141e33,
         side: THREE.DoubleSide,
@@ -551,7 +591,6 @@
         document.getElementById('hudY').innerText = totalY;
         document.getElementById('hudZ').innerText = totalZ;
 
-        // On mobile, show green badge and switch to 3D View automatically
         if (window.innerWidth < 1024) {
           document.getElementById('mobileBadge').classList.remove('hidden');
           switchMobileView('3d');
@@ -567,8 +606,9 @@
       if (!selectedFile) return showError('Please upload an image first.');
 
       errorBanner.classList.add('hidden');
+      slicingNotice.classList.add('hidden');
       loadingOverlay.classList.remove('hidden');
-      loadingStatusText.innerText = "Extracting contours & extruding 3D geometry...";
+      loadingStatusText.innerText = "Extracting contours & slicing for Prusa " + printerSelect.value.toUpperCase() + "...";
 
       const formData = new FormData();
       formData.append('image', selectedFile);
@@ -578,6 +618,7 @@
       formData.append('simplify_tol', simplifyInput.value);
       formData.append('invert', invertInput.checked);
       formData.append('stamp_mode', currentMode === 'stamp');
+      formData.append('printer_model', printerSelect.value);
 
       const headers = {};
       if (userToken) {
@@ -604,18 +645,29 @@
         resultsSection.classList.remove('hidden');
         document.getElementById('resInnerDims').innerText = `${data.dimensions.inner_width_mm} × ${data.dimensions.inner_height_mm} mm`;
         document.getElementById('resPrintDims').innerText = `${data.stats.print_width_mm} × ${data.stats.print_length_mm} × ${data.stats.print_height_mm} mm`;
+        document.getElementById('resPrinter').innerText = data.printer_name || printerSelect.value.toUpperCase();
         document.getElementById('resTriangles').innerText = data.stats.triangle_count.toLocaleString();
-        document.getElementById('resPrintTime').innerText = data.slicing?.estimated_print_time || "Ready";
+        document.getElementById('resPrintTime').innerText = data.slicing?.estimated_print_time || "N/A";
+        document.getElementById('resFilament').innerText = data.slicing?.filament_used_meters ? `${data.slicing.filament_used_meters} m` : "N/A";
 
         const downloadStlBtn = document.getElementById('downloadStlBtn');
         const downloadGcodeBtn = document.getElementById('downloadGcodeBtn');
+        const downloadGcodeText = document.getElementById('downloadGcodeText');
+
         downloadStlBtn.href = data.downloads.stl_url;
+        downloadStlBtn.download = data.downloads.stl_filename || "cookie_cutter.stl";
 
         if (data.downloads.gcode_url) {
           downloadGcodeBtn.href = data.downloads.gcode_url;
+          downloadGcodeBtn.download = data.downloads.gcode_filename || `cookie_cutter_${data.printer_model}.gcode`;
+          downloadGcodeText.innerText = `Download Prusa ${data.printer_model.toUpperCase()} G-code (.GCODE)`;
           downloadGcodeBtn.classList.remove('hidden');
         } else {
           downloadGcodeBtn.classList.add('hidden');
+          if (data.slicing?.error) {
+            slicingNoticeText.innerText = "G-code slicing note: " + data.slicing.error;
+            slicingNotice.classList.remove('hidden');
+          }
         }
 
         await loadSTL(data.downloads.stl_url, data.stats);

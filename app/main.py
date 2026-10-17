@@ -21,7 +21,7 @@ from fastapi import (
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 
 from app.geometry import image_to_cookie_cutter
-from app.slicer import slice_stl_to_gcode, find_prusa_slicer_binary
+from app.slicer import slice_stl_to_gcode, find_prusa_slicer_binary, PRINTER_SPECS
 from app.auth import verify_user_token, is_auth_enabled, GOOGLE_CLIENT_ID
 
 logging.basicConfig(level=logging.INFO)
@@ -31,7 +31,6 @@ BASE_DIR = Path(__file__).resolve().parent
 ROOT_DIR = BASE_DIR.parent
 JOBS_DIR = Path(os.getenv("JOBS_DIR", "/tmp/cookiecutter_jobs"))
 JOBS_DIR.mkdir(parents=True, exist_ok=True)
-CONFIG_INI_PATH = ROOT_DIR / "slicer_config.ini"
 
 app = FastAPI(title="Prusa Cookie Cutter & Stamp Studio")
 
@@ -70,6 +69,7 @@ async def get_system_status():
     return {
         "prusaslicer_available": slicer is not None,
         "binary": slicer,
+        "supported_printers": list(PRINTER_SPECS.keys()),
     }
 
 
@@ -91,12 +91,13 @@ async def generate_model(
     simplify_tol: float = Form(0.12),
     invert: bool = Form(False),
     stamp_mode: bool = Form(False),
+    printer_model: str = Form("mk4s"),
     user_info: dict = Depends(verify_user_token),
 ):
     """
     1. Preprocesses image (horizontal mirror for correct imprint).
     2. Extracts contours, normalizes, scales, and extrudes 3-tier cutter & optional stamp.
-    3. Exports STL and runs headless PrusaSlicer.
+    3. Exports STL and runs headless PrusaSlicer for the selected printer model (MK4S, MK4, MK3S+, MINI+).
     """
     background_tasks.add_task(cleanup_old_jobs)
 
@@ -108,6 +109,10 @@ async def generate_model(
         raise HTTPException(status_code=400, detail="Image size exceeds 15MB limit.")
 
     try:
+        clean_printer = printer_model.lower().strip()
+        if clean_printer not in PRINTER_SPECS:
+            clean_printer = "mk4s"
+
         mode_str = "stamp" if stamp_mode else "outline"
         mesh, stats, preview_b64 = image_to_cookie_cutter(
             image_bytes=content,
@@ -128,16 +133,15 @@ async def generate_model(
         stl_path = job_dir / stl_filename
         mesh.export(str(stl_path))
 
-        gcode_filename = "cookie_cutter.gcode"
+        gcode_filename = f"cookie_cutter_{clean_printer}.gcode"
         gcode_path = job_dir / gcode_filename
 
         slicing_result = slice_stl_to_gcode(
             stl_path=str(stl_path),
             output_gcode_path=str(gcode_path),
-            config_ini_path=str(CONFIG_INI_PATH),
-            center_xy="125,105",
+            printer_model=clean_printer,
             threads=2,
-            timeout_seconds=45,
+            timeout_seconds=50,
         )
 
         dims = {
@@ -153,9 +157,13 @@ async def generate_model(
                 "dimensions": dims,
                 "stats": stats,
                 "slicing": slicing_result,
+                "printer_model": clean_printer,
+                "printer_name": PRINTER_SPECS[clean_printer]["name"],
                 "downloads": {
                     "stl_url": f"/api/download/{job_id}/{stl_filename}",
+                    "stl_filename": stl_filename,
                     "gcode_url": f"/api/download/{job_id}/{gcode_filename}" if slicing_result.get("gcode_generated") else None,
+                    "gcode_filename": gcode_filename,
                 },
                 "user": user_info.get("email"),
             }
