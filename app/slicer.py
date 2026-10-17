@@ -55,11 +55,12 @@ def find_prusa_slicer_binary() -> Optional[str]:
     return None
 
 
-def generate_slicer_ini(printer_model: str, output_ini_path: str) -> str:
+def generate_slicer_ini(printer_model: str, output_ini_path: str, threads: int = 2) -> str:
     """Generates a clean, 100% version-compatible PrusaSlicer config INI file."""
     spec = PRINTER_SPECS.get(printer_model.lower(), PRINTER_SPECS["mk4s"])
 
     ini_content = f"""# Auto-generated PrusaSlicer profile for {spec['name']}
+threads = {threads}
 bed_shape = {spec['bed_shape']}
 max_print_height = {spec['max_z']}
 layer_height = 0.2
@@ -128,14 +129,13 @@ def slice_stl_to_gcode(
 
     spec = PRINTER_SPECS.get(printer_model.lower(), PRINTER_SPECS["mk4s"])
     ini_path = str(Path(stl_path).with_suffix(".ini"))
-    generate_slicer_ini(printer_model, ini_path)
+    generate_slicer_ini(printer_model, ini_path, threads=threads)
 
     cmd = [
         binary,
         "--load", ini_path,
         "--center", spec["center"],
         "--ensure-on-bed",
-        "--threads", str(threads),
         "--export-gcode",
         "--output", output_gcode_path,
         stl_path,
