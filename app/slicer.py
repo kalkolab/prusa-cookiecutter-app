@@ -14,24 +14,32 @@ logger = logging.getLogger("slicer")
 
 PRINTER_SPECS = {
     "mk4s": {
+        "bed_x": 250,
+        "bed_y": 210,
         "name": "Prusa MK4S",
         "bed_shape": "0x0,250x0,250x210,0x210",
         "center": "125,105",
         "max_z": 220,
     },
     "mk4": {
+        "bed_x": 250,
+        "bed_y": 210,
         "name": "Prusa MK4",
         "bed_shape": "0x0,250x0,250x210,0x210",
         "center": "125,105",
         "max_z": 220,
     },
     "mk3s": {
+        "bed_x": 250,
+        "bed_y": 210,
         "name": "Prusa MK3S+",
         "bed_shape": "0x0,250x0,250x210,0x210",
         "center": "125,105",
         "max_z": 210,
     },
     "mini": {
+        "bed_x": 180,
+        "bed_y": 180,
         "name": "Prusa MINI+",
         "bed_shape": "0x0,180x0,180x180,0x180",
         "center": "90,90",

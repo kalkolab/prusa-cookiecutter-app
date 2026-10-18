@@ -81,8 +81,29 @@ async def get_client_config():
     }
 
 
+# Accepted ranges for user-supplied geometry parameters (mirror the UI sliders)
+PARAM_LIMITS = {
+    "target_size_mm": (20.0, 200.0),
+    "blade_height": (5.0, 30.0),
+    "handle_width": (1.0, 10.0),
+    "simplify_tol": (0.01, 1.0),
+}
+
+# Clearance kept around the part for the skirt (skirt_distance + skirt line)
+BED_MARGIN_MM = 5.0
+
+
+def validate_param(name: str, value: float) -> None:
+    lo, hi = PARAM_LIMITS[name]
+    if not (lo <= value <= hi):
+        raise HTTPException(
+            status_code=400,
+            detail=f"{name} must be between {lo:g} and {hi:g} (got {value:g}).",
+        )
+
+
 @app.post("/api/generate")
-async def generate_model(
+def generate_model(
     background_tasks: BackgroundTasks,
     image: UploadFile = File(...),
     target_size_mm: float = Form(80.0),
@@ -98,13 +119,21 @@ async def generate_model(
     1. Preprocesses image (horizontal mirror for correct imprint).
     2. Extracts contours, normalizes, scales, and extrudes 3-tier cutter & optional stamp.
     3. Exports STL and runs headless PrusaSlicer for the selected printer model (MK4S, MK4, MK3S+, MINI+).
+
+    Declared as a sync handler so FastAPI runs it in a worker thread: the geometry
+    work and the PrusaSlicer subprocess would otherwise block the event loop.
     """
     background_tasks.add_task(cleanup_old_jobs)
+
+    validate_param("target_size_mm", target_size_mm)
+    validate_param("blade_height", blade_height)
+    validate_param("handle_width", handle_width)
+    validate_param("simplify_tol", simplify_tol)
 
     if not image.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Uploaded file is not an image.")
 
-    content = await image.read()
+    content = image.file.read()
     if len(content) > 15 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Image size exceeds 15MB limit.")
 
@@ -124,6 +153,16 @@ async def generate_model(
             invert=invert,
             simplify_tol=simplify_tol,
         )
+
+        spec = PRINTER_SPECS[clean_printer]
+        max_x = spec["bed_x"] - 2 * BED_MARGIN_MM
+        max_y = spec["bed_y"] - 2 * BED_MARGIN_MM
+        if stats["print_width_mm"] > max_x or stats["print_length_mm"] > max_y:
+            raise ValueError(
+                f"Model footprint {stats['print_width_mm']} × {stats['print_length_mm']} mm "
+                f"does not fit the {spec['name']} bed (max {max_x:g} × {max_y:g} mm). "
+                "Reduce the target size or handle rim width."
+            )
 
         job_id = str(uuid.uuid4())
         job_dir = JOBS_DIR / job_id

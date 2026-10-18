@@ -147,8 +147,10 @@ def image_to_cookie_cutter(
 
     def transform_poly(p):
         shifted = shapely.affinity.translate(p, xoff=-cx, yoff=-cy)
+        # Negate Y: image rows grow downward, mesh Y grows toward the back of the bed.
+        # Without this the implicit vertical flip cancels the horizontal mirror above.
         scaled = shapely.affinity.scale(
-            shifted, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
+            shifted, xfact=scale_factor, yfact=-scale_factor, origin=(0, 0)
         )
         return scaled.simplify(simplify_tol, preserve_topology=True).buffer(0)
 
