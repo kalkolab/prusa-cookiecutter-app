@@ -22,6 +22,9 @@ ALLOWED_EMAILS: List[str] = [
 
 security = HTTPBearer(auto_error=False)
 
+if GOOGLE_CLIENT_ID and not ALLOWED_EMAILS:
+    logger.warning("GOOGLE_CLIENT_ID is set but ALLOWED_EMAILS is empty: all sign-ins will be refused.")
+
 
 def is_auth_enabled() -> bool:
     """Returns True if Google OAuth Client ID is configured."""
@@ -65,8 +68,14 @@ def verify_user_token(credentials: Optional[HTTPAuthorizationCredentials] = Depe
                 detail="Token does not contain a verified email address."
             )
 
-        # Check if email is in the allowlist
-        if ALLOWED_EMAILS and email not in ALLOWED_EMAILS:
+        if not id_info.get("email_verified", False):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token does not contain a verified email address."
+            )
+
+        # Check if email is in the allowlist (an empty allowlist admits nobody)
+        if email not in ALLOWED_EMAILS:
             logger.warning(f"Unauthorized access attempt by: {email}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

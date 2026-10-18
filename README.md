@@ -106,9 +106,10 @@ gcloud run deploy cookie-cutter-studio \
   --cpu 2 \
   --max-instances 2 \
   --allow-unauthenticated \
-  --set-env-vars="GOOGLE_CLIENT_ID=YOUR_CLIENT_ID.apps.googleusercontent.com" \
-  --set-env-vars="^;^ALLOWED_EMAILS=you@gmail.com;friend1@gmail.com;friend2@gmail.com"
+  --set-env-vars="^;^GOOGLE_CLIENT_ID=YOUR_CLIENT_ID.apps.googleusercontent.com;ALLOWED_EMAILS=you@gmail.com,friend1@gmail.com,friend2@gmail.com"
 ```
+
+> **Note:** Pass all variables in a **single** `--set-env-vars` flag — when the flag is repeated only the last one takes effect, which would drop `GOOGLE_CLIENT_ID` and leave the app open. The `^;^` prefix switches the pair separator to `;` so the commas inside `ALLOWED_EMAILS` are preserved. If `GOOGLE_CLIENT_ID` is set, `ALLOWED_EMAILS` must be non-empty or every sign-in is refused.
 
 > **Note:** We use `--allow-unauthenticated` on Cloud Run because authentication is enforced directly by the application backend using verified Google OAuth ID tokens and the `ALLOWED_EMAILS` check. This avoids the need for an expensive Google Cloud Load Balancer (~$18/mo) required by Cloud IAP.
 
