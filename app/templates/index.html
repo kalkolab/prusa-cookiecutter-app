@@ -39,6 +39,10 @@
 
     <!-- Auth / Profile Section -->
     <div class="flex items-center space-x-2 sm:space-x-4">
+      <button onclick="openLibrary()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center space-x-1.5 transition">
+        <i data-lucide="library" class="w-4 h-4 text-prusa-orange"></i>
+        <span>Library</span>
+      </button>
       <div id="authStatusBadge" class="hidden text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700"></div>
       <div id="g_id_signin_container"></div>
       <div id="userProfile" class="hidden flex items-center space-x-2 sm:space-x-3">
@@ -225,6 +229,19 @@
             <span id="downloadGcodeText">Download Prusa MK4S G-code (.GCODE)</span>
           </a>
         </div>
+
+        <!-- Save to Library -->
+        <div class="bg-slate-800/60 rounded-xl p-3 border border-slate-700 space-y-2">
+          <label for="saveNameInput" class="block text-xs font-semibold uppercase text-slate-400">Save to Library</label>
+          <div class="flex space-x-2">
+            <input id="saveNameInput" type="text" maxlength="80" placeholder="e.g. Christmas tree" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-prusa focus:outline-none">
+            <button id="saveToLibraryBtn" type="button" onclick="saveToLibrary()" class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold text-white flex items-center space-x-1.5 transition flex-shrink-0">
+              <i data-lucide="bookmark-plus" class="w-4 h-4"></i>
+              <span id="saveToLibraryText">Save</span>
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-500">Stores the STL, G-code, original image and all parameters.</p>
+        </div>
       </section>
     </aside>
 
@@ -270,6 +287,76 @@
     </div>
   </main>
 
+  <!-- Cutter Library Modal -->
+  <div id="libraryModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-stretch sm:items-center justify-center sm:p-6">
+    <div class="bg-slate-900 border border-slate-800 sm:rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col max-h-full sm:max-h-[90vh]">
+      <div class="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-slate-800 flex-shrink-0">
+        <div class="flex items-center space-x-2 min-w-0">
+          <button id="libraryBackBtn" onclick="showLibraryList()" class="hidden p-1 -ml-1 text-slate-400 hover:text-white" aria-label="Back to library">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+          </button>
+          <i data-lucide="library" class="w-5 h-5 text-prusa-orange flex-shrink-0"></i>
+          <h2 id="libraryTitle" class="font-bold text-sm sm:text-base truncate">Cutter Library</h2>
+        </div>
+        <button onclick="closeLibrary()" class="p-1 text-slate-400 hover:text-white" aria-label="Close library">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- List View -->
+      <div id="libraryListView" class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input id="librarySearch" type="search" placeholder="Search by name…" oninput="renderLibraryList()" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-prusa focus:outline-none">
+          <select id="libraryFilter" onchange="renderLibraryList()" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-prusa focus:outline-none">
+            <option value="all">All cutters</option>
+            <option value="mine">Saved by me</option>
+            <option value="outline">Cutter only</option>
+            <option value="stamp">Cutter + Stamp</option>
+          </select>
+        </div>
+        <p id="libraryStatus" class="text-xs text-slate-400"></p>
+        <div id="libraryGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"></div>
+      </div>
+
+      <!-- Detail View -->
+      <div id="libraryDetailView" class="hidden flex-1 overflow-y-auto p-4 sm:p-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-2 gap-2">
+            <figure>
+              <img id="detailOriginal" class="w-full aspect-square object-contain rounded-lg border border-slate-700 bg-white" alt="Original image">
+              <figcaption class="text-[10px] text-slate-500 mt-1 text-center">Original image</figcaption>
+            </figure>
+            <figure>
+              <img id="detailMask" class="w-full aspect-square object-contain rounded-lg border border-slate-700 bg-black" alt="Detected mask">
+              <figcaption class="text-[10px] text-slate-500 mt-1 text-center">Detected 2D mask</figcaption>
+            </figure>
+          </div>
+          <div class="space-y-3">
+            <div id="detailMeta" class="text-[11px] text-slate-400"></div>
+            <dl id="detailParams" class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs bg-slate-800/60 border border-slate-700 rounded-xl p-3"></dl>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="viewLibraryItem3D()" class="py-2.5 px-3 rounded-xl bg-prusa-orange hover-bg-prusa text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
+                <i data-lucide="box" class="w-4 h-4"></i><span>View in 3D</span>
+              </button>
+              <button onclick="reuseLibraryItem()" class="py-2.5 px-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
+                <i data-lucide="sliders" class="w-4 h-4"></i><span>Load Settings</span>
+              </button>
+              <button onclick="downloadLibraryFile('stl')" class="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
+                <i data-lucide="download" class="w-4 h-4"></i><span>STL</span>
+              </button>
+              <button id="detailGcodeBtn" onclick="downloadLibraryFile('gcode')" class="py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
+                <i data-lucide="download" class="w-4 h-4"></i><span id="detailGcodeText">G-code</span>
+              </button>
+            </div>
+            <button id="detailDeleteBtn" onclick="deleteLibraryItem()" class="w-full py-2 px-3 rounded-xl border border-red-900 text-red-400 hover:bg-red-950/60 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
+              <i data-lucide="trash-2" class="w-4 h-4"></i><span>Delete from Library</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     lucide.createIcons();
 
@@ -279,6 +366,10 @@
     let currentUser = null;
     let config = { google_client_id: '', auth_disabled: true };
     let currentMobileView = 'controls';
+    let lastJobId = null;
+    let libraryItems = [];
+    let currentLibraryItem = null;
+    const blobUrlCache = new Map();
 
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
@@ -676,6 +767,10 @@
           }
         }
 
+        lastJobId = data.job_id;
+        resetSaveButton();
+        document.getElementById('saveNameInput').value = (selectedFile.name || '').replace(/\.[^.]+$/, '').slice(0, 80);
+
         await loadSTL(data.downloads.stl_url, data.stats);
 
       } catch (err) {
@@ -684,6 +779,286 @@
         loadingOverlay.classList.add('hidden');
       }
     }
+
+    // ---------------------------------------------------------------------
+    // Cutter Library
+    // ---------------------------------------------------------------------
+    function authHeaders(extra = {}) {
+      return userToken ? { ...extra, 'Authorization': `Bearer ${userToken}` } : extra;
+    }
+
+    async function apiJson(url, options = {}) {
+      const resp = await fetch(url, { ...options, headers: authHeaders(options.headers || {}) });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.detail || `Request failed (HTTP ${resp.status})`);
+      return data;
+    }
+
+    // Library files require the Authorization header, so <img>/<a> can't load them directly.
+    async function authBlobUrl(url) {
+      if (blobUrlCache.has(url)) return blobUrlCache.get(url);
+      const resp = await fetch(url, { headers: authHeaders() });
+      if (!resp.ok) throw new Error(`Failed to load file (HTTP ${resp.status})`);
+      const objectUrl = URL.createObjectURL(await resp.blob());
+      blobUrlCache.set(url, objectUrl);
+      return objectUrl;
+    }
+
+    function resetSaveButton() {
+      const btn = document.getElementById('saveToLibraryBtn');
+      btn.disabled = false;
+      btn.classList.remove('opacity-60');
+      document.getElementById('saveToLibraryText').innerText = 'Save';
+    }
+
+    async function saveToLibrary() {
+      if (!lastJobId) return showError('Generate a cutter first.');
+      const name = document.getElementById('saveNameInput').value.trim();
+      if (!name) return showError('Enter a name for the cutter.');
+      const btn = document.getElementById('saveToLibraryBtn');
+      const text = document.getElementById('saveToLibraryText');
+      btn.disabled = true;
+      text.innerText = 'Saving…';
+      try {
+        await apiJson('/api/library', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ job_id: lastJobId, name }),
+        });
+        text.innerText = 'Saved ✓';
+        btn.classList.add('opacity-60');
+      } catch (err) {
+        btn.disabled = false;
+        text.innerText = 'Save';
+        showError(err.message);
+      }
+    }
+
+    function openLibrary() {
+      document.getElementById('libraryModal').classList.remove('hidden');
+      showLibraryList();
+      loadLibrary();
+    }
+
+    function closeLibrary() {
+      document.getElementById('libraryModal').classList.add('hidden');
+    }
+
+    function showLibraryList() {
+      currentLibraryItem = null;
+      document.getElementById('libraryTitle').innerText = 'Cutter Library';
+      document.getElementById('libraryBackBtn').classList.add('hidden');
+      document.getElementById('libraryDetailView').classList.add('hidden');
+      document.getElementById('libraryListView').classList.remove('hidden');
+    }
+
+    async function loadLibrary() {
+      const status = document.getElementById('libraryStatus');
+      status.innerText = 'Loading…';
+      try {
+        const data = await apiJson('/api/library');
+        libraryItems = data.items;
+        renderLibraryList();
+      } catch (err) {
+        status.innerText = err.message;
+      }
+    }
+
+    function formatDate(iso) {
+      const d = new Date(iso);
+      return isNaN(d) ? '' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    function itemSizeText(item) {
+      const d = item.dimensions || {};
+      return `${d.inner_width_mm ?? '?'} × ${d.inner_height_mm ?? '?'} mm`;
+    }
+
+    function renderLibraryList() {
+      const grid = document.getElementById('libraryGrid');
+      const status = document.getElementById('libraryStatus');
+      const query = document.getElementById('librarySearch').value.trim().toLowerCase();
+      const filter = document.getElementById('libraryFilter').value;
+      const myEmail = (currentUser?.email || 'dev-user@local').toLowerCase();
+
+      const items = libraryItems.filter(item => {
+        if (query && !item.name.toLowerCase().includes(query)) return false;
+        if (filter === 'mine') return (item.owner || '').toLowerCase() === myEmail;
+        if (filter === 'outline' || filter === 'stamp') return item.mode === filter;
+        return true;
+      });
+
+      grid.replaceChildren();
+      if (!libraryItems.length) {
+        status.innerText = 'No saved cutters yet. Generate one and press "Save" under the results.';
+        return;
+      }
+      status.innerText = `${items.length} of ${libraryItems.length} cutters`;
+
+      for (const item of items) {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'text-left bg-slate-800/60 hover:bg-slate-800 border border-slate-700 hover:border-prusa rounded-xl overflow-hidden transition';
+        card.onclick = () => showLibraryDetail(item);
+
+        const img = document.createElement('img');
+        img.className = 'w-full aspect-square object-contain bg-white';
+        img.alt = item.name;
+        const thumbUrl = item.urls.thumb || item.urls.original;
+        if (thumbUrl) authBlobUrl(thumbUrl).then(u => img.src = u).catch(() => {});
+
+        const body = document.createElement('div');
+        body.className = 'p-2 space-y-0.5';
+        const title = document.createElement('div');
+        title.className = 'text-xs font-semibold text-slate-100 truncate';
+        title.textContent = item.name;
+        const sub = document.createElement('div');
+        sub.className = 'text-[10px] text-slate-400 font-mono truncate';
+        sub.textContent = `${itemSizeText(item)} · ${item.mode === 'stamp' ? 'Stamp' : 'Cutter'}`;
+        const date = document.createElement('div');
+        date.className = 'text-[10px] text-slate-500 truncate';
+        date.textContent = `${formatDate(item.created_at)} · ${item.owner || ''}`;
+        body.append(title, sub, date);
+
+        card.append(img, body);
+        grid.appendChild(card);
+      }
+    }
+
+    function showLibraryDetail(item) {
+      currentLibraryItem = item;
+      document.getElementById('libraryTitle').innerText = item.name;
+      document.getElementById('libraryBackBtn').classList.remove('hidden');
+      document.getElementById('libraryListView').classList.add('hidden');
+      document.getElementById('libraryDetailView').classList.remove('hidden');
+
+      const original = document.getElementById('detailOriginal');
+      const mask = document.getElementById('detailMask');
+      original.removeAttribute('src');
+      mask.removeAttribute('src');
+      if (item.urls.original) authBlobUrl(item.urls.original).then(u => { if (currentLibraryItem === item) original.src = u; }).catch(() => {});
+      if (item.urls.mask) authBlobUrl(item.urls.mask).then(u => { if (currentLibraryItem === item) mask.src = u; }).catch(() => {});
+
+      document.getElementById('detailMeta').textContent =
+        `Saved ${formatDate(item.created_at)} by ${item.owner || 'unknown'}` +
+        (item.original_filename ? ` · source: ${item.original_filename}` : '');
+
+      const p = item.params || {};
+      const s = item.stats || {};
+      const rows = [
+        ['Mode', item.mode === 'stamp' ? 'Cutter + Stamp' : 'Cutter only'],
+        ['Printer', item.printer_name || p.printer_model],
+        ['Inner cut', itemSizeText(item)],
+        ['Print size', s.print_width_mm ? `${s.print_width_mm} × ${s.print_length_mm} × ${s.print_height_mm} mm` : '--'],
+        ['Target size', `${p.target_size_mm} mm`],
+        ['Blade height', `${p.blade_height} mm`],
+        ['Handle rim', `${p.handle_width} mm`],
+        ['Smoothing', `${p.simplify_tol} mm`],
+        ['Inverted', p.invert ? 'Yes' : 'No'],
+        ['Print time', item.slicing?.estimated_print_time || 'N/A'],
+        ['Filament', item.slicing?.filament_used_meters ? `${item.slicing.filament_used_meters} m` : 'N/A'],
+        ['Triangles', s.triangle_count ? s.triangle_count.toLocaleString() : '--'],
+      ];
+      const dl = document.getElementById('detailParams');
+      dl.replaceChildren();
+      for (const [label, value] of rows) {
+        const dt = document.createElement('dt');
+        dt.className = 'text-slate-400';
+        dt.textContent = label;
+        const dd = document.createElement('dd');
+        dd.className = 'text-slate-200 font-mono text-right';
+        dd.textContent = value;
+        dl.append(dt, dd);
+      }
+
+      document.getElementById('detailGcodeBtn').classList.toggle('hidden', !item.urls.gcode);
+      document.getElementById('detailGcodeText').innerText = `${(p.printer_model || '').toUpperCase()} G-code`;
+
+      const myEmail = (currentUser?.email || '').toLowerCase();
+      const canDelete = config.auth_disabled || (item.owner || '').toLowerCase() === myEmail;
+      document.getElementById('detailDeleteBtn').classList.toggle('hidden', !canDelete);
+    }
+
+    async function downloadLibraryFile(kind) {
+      const item = currentLibraryItem;
+      if (!item || !item.urls[kind]) return;
+      try {
+        const resp = await fetch(item.urls[kind], { headers: authHeaders() });
+        if (!resp.ok) throw new Error(`Download failed (HTTP ${resp.status})`);
+        const disposition = resp.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="?([^";]+)"?/);
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(await resp.blob());
+        a.download = match ? match[1] : item.files[kind];
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    function setPrinter(printer) {
+      if (!printer || ![...printerSelect.options].some(o => o.value === printer)) return;
+      printerSelect.value = printer;
+      onPrinterChange();
+    }
+
+    async function viewLibraryItem3D() {
+      const item = currentLibraryItem;
+      if (!item) return;
+      closeLibrary();
+      setPrinter(item.params?.printer_model);
+      await loadSTL(item.urls.stl, item.stats);
+    }
+
+    async function reuseLibraryItem() {
+      const item = currentLibraryItem;
+      if (!item) return;
+      const p = item.params || {};
+      try {
+        if (item.urls.original) {
+          const resp = await fetch(item.urls.original, { headers: authHeaders() });
+          if (!resp.ok) throw new Error(`Failed to load original image (HTTP ${resp.status})`);
+          const blob = await resp.blob();
+          handleFile(new File([blob], item.original_filename || item.files.original, { type: blob.type.startsWith('image/') ? blob.type : 'image/png' }));
+        }
+        setPrinter(p.printer_model);
+        const setSlider = (input, label, value, unit) => {
+          if (value === undefined || value === null) return;
+          input.value = value;
+          label.innerText = `${input.value} ${unit}`;
+        };
+        setSlider(targetSizeInput, targetSizeVal, p.target_size_mm, 'mm');
+        setSlider(bladeHeightInput, bladeHeightVal, p.blade_height, 'mm');
+        setSlider(handleWidthInput, handleWidthVal, p.handle_width, 'mm');
+        setSlider(simplifyInput, simplifyVal, p.simplify_tol, 'mm');
+        invertInput.checked = !!p.invert;
+        setMode(p.stamp_mode ? 'stamp' : 'cutter');
+        closeLibrary();
+        switchMobileView('controls');
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    async function deleteLibraryItem() {
+      const item = currentLibraryItem;
+      if (!item || !confirm(`Delete "${item.name}" from the library? This cannot be undone.`)) return;
+      try {
+        await apiJson(`/api/library/${item.id}`, { method: 'DELETE' });
+        libraryItems = libraryItems.filter(i => i.id !== item.id);
+        showLibraryList();
+        renderLibraryList();
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !document.getElementById('libraryModal').classList.contains('hidden')) closeLibrary();
+    });
 
     function restoreSession() {
       try {

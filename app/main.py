@@ -3,8 +3,10 @@ Prusa Cookie Cutter & Stamp Studio - FastAPI Application
 """
 
 import os
+import json
 import time
 import uuid
+import base64
 import shutil
 import logging
 from pathlib import Path
@@ -19,10 +21,12 @@ from fastapi import (
     BackgroundTasks,
 )
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from pydantic import BaseModel
 
 from app.geometry import image_to_cookie_cutter
 from app.slicer import slice_stl_to_gcode, find_prusa_slicer_binary, PRINTER_SPECS
 from app.auth import verify_user_token, is_auth_enabled, GOOGLE_CLIENT_ID
+from app import library
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app")
@@ -189,6 +193,46 @@ def generate_model(
             "target_size_mm": target_size_mm,
         }
 
+        # Keep the source image, mask and parameters next to the outputs so the
+        # job can later be saved to the cutter library.
+        original_filename = "original" + library.image_extension(image.content_type, image.filename)
+        (job_dir / original_filename).write_bytes(content)
+        mask_filename = None
+        if preview_b64:
+            mask_filename = "mask.png"
+            (job_dir / mask_filename).write_bytes(base64.b64decode(preview_b64))
+        thumb_filename = None
+        thumb = library.make_thumbnail(content)
+        if thumb:
+            thumb_filename = "thumb.jpg"
+            (job_dir / thumb_filename).write_bytes(thumb)
+
+        job_meta = {
+            "mode": mode_str,
+            "params": {
+                "target_size_mm": target_size_mm,
+                "blade_height": blade_height,
+                "handle_width": handle_width,
+                "simplify_tol": simplify_tol,
+                "invert": invert,
+                "stamp_mode": stamp_mode,
+                "printer_model": clean_printer,
+            },
+            "printer_name": spec["name"],
+            "dimensions": dims,
+            "stats": stats,
+            "slicing": slicing_result,
+            "original_filename": image.filename,
+            "files": {
+                "stl": stl_filename,
+                "gcode": gcode_filename if slicing_result.get("gcode_generated") else None,
+                "original": original_filename,
+                "mask": mask_filename,
+                "thumb": thumb_filename,
+            },
+        }
+        (job_dir / library.JOB_META_FILENAME).write_text(json.dumps(job_meta, indent=2), encoding="utf-8")
+
         return JSONResponse(
             content={
                 "job_id": job_id,
@@ -238,6 +282,94 @@ async def download_file(job_id: str, filename: str):
         media_type=media_type,
         filename=safe_filename,
     )
+
+
+# ---------------------------------------------------------------------------
+# Cutter Library
+# ---------------------------------------------------------------------------
+
+class SaveToLibraryRequest(BaseModel):
+    job_id: str
+    name: str
+
+
+def library_item_response(meta: dict) -> dict:
+    """Adds download URLs for each stored file to an item's metadata."""
+    item_id = meta["id"]
+    return {
+        **meta,
+        "urls": {
+            key: f"/api/library/{item_id}/files/{filename}"
+            for key, filename in meta.get("files", {}).items()
+            if filename
+        },
+    }
+
+
+def get_library_item_or_404(item_id: str) -> dict:
+    meta = library.get_item(item_id)
+    if not meta:
+        raise HTTPException(status_code=404, detail="Library item not found.")
+    return meta
+
+
+@app.post("/api/library")
+def save_to_library(req: SaveToLibraryRequest, user_info: dict = Depends(verify_user_token)):
+    """Copies a generated job (STL, G-code, original image, params) into the persistent library."""
+    try:
+        job_id = str(uuid.UUID(req.job_id))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid job id.")
+    try:
+        meta = library.save_from_job(JOBS_DIR / job_id, req.name, user_info.get("email"))
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("Failed to save to library")
+        raise HTTPException(status_code=500, detail=f"Could not save to library: {e}")
+    return library_item_response(meta)
+
+
+@app.get("/api/library")
+def list_library(user_info: dict = Depends(verify_user_token)):
+    return {"items": [library_item_response(m) for m in library.list_items()]}
+
+
+@app.get("/api/library/{item_id}")
+def get_library_item(item_id: str, user_info: dict = Depends(verify_user_token)):
+    return library_item_response(get_library_item_or_404(item_id))
+
+
+@app.get("/api/library/{item_id}/files/{filename}")
+def get_library_file(item_id: str, filename: str, user_info: dict = Depends(verify_user_token)):
+    """
+    Serves a stored file. Unlike job downloads these live forever, so they require
+    the Authorization header; the UI fetches them as blobs.
+    """
+    meta = get_library_item_or_404(item_id)
+    path = library.item_file_path(item_id, filename)
+    if not path:
+        raise HTTPException(status_code=404, detail="File not found.")
+
+    suffix = path.suffix.lower()
+    if suffix in (".stl", ".gcode"):
+        media_type = "model/stl" if suffix == ".stl" else "text/x.gcode"
+        stem = library.slugify(meta.get("name", ""))
+        if suffix == ".gcode":
+            stem += f"_{meta.get('params', {}).get('printer_model', 'prusa')}"
+        return FileResponse(path=path, media_type=media_type, filename=stem + suffix)
+    return FileResponse(path=path)
+
+
+@app.delete("/api/library/{item_id}")
+def delete_library_item(item_id: str, user_info: dict = Depends(verify_user_token)):
+    meta = get_library_item_or_404(item_id)
+    if not user_info.get("auth_disabled") and meta.get("owner") != user_info.get("email"):
+        raise HTTPException(status_code=403, detail="Only the person who saved this cutter can delete it.")
+    library.delete_item(item_id)
+    return {"deleted": item_id}
 
 
 if __name__ == "__main__":

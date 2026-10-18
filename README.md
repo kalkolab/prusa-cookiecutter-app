@@ -18,6 +18,10 @@ A self-contained web application that transforms 2D images (JPEG, PNG, WebP) int
   - Exact $250 \times 210\text{ mm}$ Prusa MK3S/MK4 build plate grid with 10 mm squares.
   - Live millimeter bounding box overlays ($X \times Y \times Z$).
   - 360° orbit controls and camera presets (Perspective / Top View).
+- **Cutter Library:**
+  - Save any generated cutter with a name: STL, G-code, original image, detected mask and every parameter are stored together.
+  - Browse, search and filter the library, preview a saved cutter on the 3D bed, download its files, or load its image and settings back into the editor.
+  - Files live in a plain directory (`LIBRARY_DIR`), backed by a Google Cloud Storage bucket on Cloud Run (see [Persistent Library Storage](#5-persistent-library-storage-cloud-storage-bucket)).
 - **Google OAuth 2.0 Allowlist Protection:**
   - Secure access restricted to you and your friends' Google accounts.
   - Graceful dev mode fallback when unconfigured.
@@ -33,8 +37,9 @@ To run locally with Docker (includes PrusaSlicer and graphics libraries pre-inst
 # Build the Docker image
 docker build -t prusa-cookiecutter-studio .
 
-# Run the container
+# Run the container (the named volume keeps the cutter library between restarts)
 docker run -p 8080:8080 \
+  -v cookie-library:/data/library \
   -e GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com" \
   -e ALLOWED_EMAILS="you@gmail.com,friend@gmail.com" \
   prusa-cookiecutter-studio
@@ -115,6 +120,40 @@ gcloud run deploy cookie-cutter-studio \
 
 ---
 
+### 5. Persistent Library Storage (Cloud Storage bucket)
+
+Cloud Run's filesystem is in-memory and wiped whenever an instance stops, so saved cutters need external storage. The app writes the library to `LIBRARY_DIR` (`/data/library` in the container); on Cloud Run, mount a **Cloud Storage bucket** at that path. No code or SDK changes are needed — the bucket appears as a normal directory.
+
+```bash
+# Create the bucket (same region as the service)
+gcloud storage buckets create gs://prusa-cookiecutter-library \
+  --project=prusa-cookiecutter-app \
+  --location=europe-west1 \
+  --uniform-bucket-level-access
+
+# Let the Cloud Run service account read and write objects
+# (default: PROJECT_NUMBER-compute@developer.gserviceaccount.com)
+gcloud storage buckets add-iam-policy-binding gs://prusa-cookiecutter-library \
+  --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+  --role="roles/storage.objectUser"
+
+# Mount it into the service (volume mounts need the gen2 execution environment)
+gcloud run services update cookie-cutter-studio \
+  --project=prusa-cookiecutter-app \
+  --region=europe-west1 \
+  --execution-environment=gen2 \
+  --add-volume=name=library,type=cloud-storage,bucket=prusa-cookiecutter-library \
+  --add-volume-mount=volume=library,mount-path=/data/library
+```
+
+**Cost:** a saved cutter is roughly 1–5 MB (STL + G-code + original image), so even hundreds of cutters stay well under 1 GB — a few cents per month in `europe-west1`, or free within the 5 GB Always Free tier if the bucket is in `us-central1`, `us-east1` or `us-west1`.
+
+**Layout:** each cutter is a folder `<id>/` containing `meta.json` (name, owner, parameters, dimensions, slicing stats), the STL, the G-code, `original.<ext>`, `mask.png` and `thumb.jpg`. You can browse or back it up directly with `gcloud storage ls gs://prusa-cookiecutter-library/`.
+
+The library is shared by all allowed users; each entry records who saved it, and only that person can delete it.
+
+---
+
 ## Project Structure
 
 ```
@@ -123,6 +162,7 @@ prusa-cookiecutter-app/
 │   ├── auth.py              # Google ID token verification & allowlist check
 │   ├── geometry.py          # OpenCV image processing & 3-tier Shapely/Trimesh extrusion
 │   ├── slicer.py            # PrusaSlicer CLI execution & G-code metadata parser
+│   ├── library.py           # Persistent cutter library (files + metadata in LIBRARY_DIR)
 │   ├── main.py              # FastAPI endpoints & background cleanup
 │   └── templates/
 │       └── index.html       # Single-page UI with Three.js 3D viewport & Prusa bed

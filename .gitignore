@@ -14,3 +14,4 @@ ENV/
 /var/tmp/cookiecutter_jobs/
 .idea/
 .vscode/
+data/

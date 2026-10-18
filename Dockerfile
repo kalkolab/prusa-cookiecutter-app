@@ -8,6 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PORT=8080 \
     JOBS_DIR=/var/tmp/cookiecutter_jobs \
+    LIBRARY_DIR=/data/library \
     HOME=/var/tmp/app_home
 
 # Install PrusaSlicer and graphics/mesh rendering runtime libraries
@@ -22,8 +23,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Create working directory and temp directories
 WORKDIR /app
-RUN mkdir -p /var/tmp/cookiecutter_jobs /var/tmp/app_home && \
-    chmod -R 777 /var/tmp/cookiecutter_jobs /var/tmp/app_home
+RUN mkdir -p /var/tmp/cookiecutter_jobs /var/tmp/app_home /data/library && \
+    chmod -R 777 /var/tmp/cookiecutter_jobs /var/tmp/app_home /data/library
 
 # Install Python requirements
 COPY requirements.txt .
