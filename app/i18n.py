@@ -187,6 +187,12 @@ MESSAGES: Dict[str, Dict[str, str]] = {
         "ru": "Неизвестная модель принтера: {printer}",
         "uk": "Невідома модель принтера: {printer}",
     },
+    "unknown_filament": {
+        "en": "Unknown filament: {filament}",
+        "fr": "Filament inconnu : {filament}",
+        "ru": "Неизвестный тип филамента: {filament}",
+        "uk": "Невідомий тип філаменту: {filament}",
+    },
     "quantity_range": {
         "en": "Quantity must be between 1 and {max}.",
         "fr": "La quantité doit être comprise entre 1 et {max}.",

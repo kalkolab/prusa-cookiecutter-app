@@ -1,49 +1,68 @@
 """
 PrusaSlicer Headless Execution Module.
-Supports dynamic profile generation for Prusa MK4S, MK4, MK3S+, and MINI+.
+
+Slices with Prusa Research's official printer / print / filament profiles (the vendor
+bundle shipped with PrusaSlicer), so the G-code gets the same start sequence as
+PrusaSlicer on the desktop: printer and nozzle checks, probing with a cool nozzle,
+mesh bed levelling of the print area, purge line and the filament's temperatures.
 """
 
 import os
+import re
 import shutil
 import logging
 import subprocess
+import configparser
 from pathlib import Path
 from typing import Dict, Any, Optional
 
 logger = logging.getLogger("slicer")
 
+# Prusa vendor bundle installed with the prusa-slicer package
+VENDOR_BUNDLE = Path(os.getenv("PRUSASLICER_VENDOR_BUNDLE", "/usr/share/PrusaSlicer/profiles/PrusaResearch.ini"))
+# PrusaSlicer configuration folder in which the Prusa printers and filaments are "installed"
+DATADIR = Path(os.getenv("PRUSASLICER_DATADIR", "/var/tmp/prusaslicer-data"))
+
+FILAMENTS = ("pla", "petg")
+DEFAULT_FILAMENT = "pla"
+
+# Profile names are the system presets from PrusaResearch.ini (PrusaSlicer 2.9 bundle).
 PRINTER_SPECS = {
     "mk4s": {
         "bed_x": 250,
         "bed_y": 210,
         "name": "Prusa MK4S",
-        "bed_shape": "0x0,250x0,250x210,0x210",
         "center": "125,105",
-        "max_z": 220,
+        "printer_profile": "Original Prusa MK4S HF0.4 nozzle",
+        "print_profile": "0.20mm SPEED @MK4S HF0.4",
+        "filament_profiles": {"pla": "Generic PLA @MK4S HF0.4", "petg": "Generic PETG @MK4S HF0.4"},
     },
     "mk4": {
         "bed_x": 250,
         "bed_y": 210,
         "name": "Prusa MK4",
-        "bed_shape": "0x0,250x0,250x210,0x210",
         "center": "125,105",
-        "max_z": 220,
+        "printer_profile": "Original Prusa MK4 Input Shaper 0.4 nozzle",
+        "print_profile": "0.20mm SPEED @MK4IS 0.4",
+        "filament_profiles": {"pla": "Generic PLA @PGIS", "petg": "Generic PETG @PGIS"},
     },
     "mk3s": {
         "bed_x": 250,
         "bed_y": 210,
         "name": "Prusa MK3S+",
-        "bed_shape": "0x0,250x0,250x210,0x210",
         "center": "125,105",
-        "max_z": 210,
+        "printer_profile": "Original Prusa i3 MK3S & MK3S+",
+        "print_profile": "0.20mm QUALITY @MK3",
+        "filament_profiles": {"pla": "Generic PLA", "petg": "Generic PETG"},
     },
     "mini": {
         "bed_x": 180,
         "bed_y": 180,
         "name": "Prusa MINI+",
-        "bed_shape": "0x0,180x0,180x180,0x180",
         "center": "90,90",
-        "max_z": 180,
+        "printer_profile": "Original Prusa MINI & MINI+ Input Shaper",
+        "print_profile": "0.20mm SPEED @MINIIS 0.4",
+        "filament_profiles": {"pla": "Generic PLA @MINIIS", "petg": "Generic PETG @MINIIS"},
     },
 }
 
@@ -63,64 +82,51 @@ def find_prusa_slicer_binary() -> Optional[str]:
     return None
 
 
-def generate_slicer_ini(printer_model: str, output_ini_path: str, threads: int = 2) -> str:
-    """Generates a clean, 100% version-compatible PrusaSlicer config INI file."""
-    spec = PRINTER_SPECS.get(printer_model.lower(), PRINTER_SPECS["mk4s"])
+def ensure_datadir() -> Path:
+    """
+    Creates a PrusaSlicer configuration folder with every Prusa printer model, nozzle
+    variant and filament from the vendor bundle marked as installed. The CLI only loads
+    system presets (--printer-profile etc.) that are installed in its datadir.
+    """
+    app_config = DATADIR / "PrusaSlicer.ini"
+    if app_config.exists():
+        return DATADIR
+    if not VENDOR_BUNDLE.exists():
+        raise FileNotFoundError(f"PrusaSlicer vendor bundle not found: {VENDOR_BUNDLE}")
 
-    ini_content = f"""# Auto-generated PrusaSlicer profile for {spec['name']}
-threads = {threads}
-bed_shape = {spec['bed_shape']}
-max_print_height = {spec['max_z']}
-layer_height = 0.2
-first_layer_height = 0.2
-perimeters = 3
-top_solid_layers = 4
-bottom_solid_layers = 4
-fill_density = 20%
-fill_pattern = grid
-skirts = 1
-skirt_distance = 3
-skirt_height = 1
-brim_width = 0
-support_material = 0
-infill_speed = 60
-perimeter_speed = 45
-external_perimeter_speed = 35
-travel_speed = 120
-first_layer_speed = 20
-filament_colour = #FA6831
-filament_type = PLA
-filament_diameter = 1.75
-temperature = 215
-first_layer_temperature = 220
-bed_temperature = 60
-first_layer_bed_temperature = 60
-cooling = 1
-min_fan_speed = 100
-max_fan_speed = 100
-nozzle_diameter = 0.4
-gcode_flavor = marlin
-extruder_offset = 0x0
-retract_length = 0.8
-retract_speed = 35
-retract_lift = 0.2
-start_gcode = G90\\nM83\\nM104 S220\\nM140 S60\\nM190 S60\\nM109 S220\\nG28\\nG1 Z0.2 F720\\nG1 Y-3 F1000\\nG92 E0\\nG1 X60 E9 F1000\\nG1 X100 E12.5 F1000\\nG92 E0
-end_gcode = G4\\nM104 S0\\nM140 S0\\nM107\\nG1 Z30 F3000\\nG1 X0 Y200 F3000\\nM84
-"""
-    with open(output_ini_path, "w", encoding="utf-8") as f:
-        f.write(ini_content.strip())
-    return output_ini_path
+    bundle = configparser.RawConfigParser(strict=False, interpolation=None)
+    bundle.optionxform = str
+    bundle.read(VENDOR_BUNDLE, encoding="utf-8")
+
+    (DATADIR / "vendor").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(VENDOR_BUNDLE, DATADIR / "vendor" / VENDOR_BUNDLE.name)
+
+    lines = [f"[vendor:{VENDOR_BUNDLE.stem}]"]
+    for section in bundle.sections():
+        if section.startswith("printer_model:"):
+            variants = [v.strip() for v in bundle[section].get("variants", "").split(";") if v.strip()]
+            lines.append(f"model:{section.split(':', 1)[1]} = {';'.join(variants)}")
+    lines.append("")
+    lines.append("[filaments]")
+    for section in bundle.sections():
+        if section.startswith("filament:") and not section.startswith("filament:*"):
+            lines.append(f"{section.split(':', 1)[1]} = 1")
+
+    tmp = app_config.with_suffix(".tmp")
+    tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    tmp.replace(app_config)
+    return DATADIR
 
 
 def slice_stl_to_gcode(
     stl_path: str,
     output_gcode_path: str,
     printer_model: str = "mk4s",
-    threads: int = 2,
+    filament: str = DEFAULT_FILAMENT,
     timeout_seconds: int = 60,
 ) -> Dict[str, Any]:
     """
-    Slices an STL file using PrusaSlicer CLI with dynamic profile generation.
+    Slices an STL file with PrusaSlicer's official profiles for the printer and filament.
     """
     binary = find_prusa_slicer_binary()
     if not binary:
@@ -137,12 +143,22 @@ def slice_stl_to_gcode(
         return {"success": False, "error": f"STL file not found: {stl_path}", "gcode_generated": False}
 
     spec = PRINTER_SPECS.get(printer_model.lower(), PRINTER_SPECS["mk4s"])
-    ini_path = str(Path(stl_path).with_suffix(".ini"))
-    generate_slicer_ini(printer_model, ini_path, threads=threads)
+    filament = filament if filament in FILAMENTS else DEFAULT_FILAMENT
+    filament_profile = spec["filament_profiles"][filament]
+
+    try:
+        datadir = ensure_datadir()
+    except Exception as e:
+        logger.exception("Could not prepare PrusaSlicer profiles")
+        return {"success": False, "error": str(e), "error_key": "slicer_failed", "gcode_generated": False}
 
     cmd = [
         binary,
-        "--load", ini_path,
+        "--datadir", str(datadir),
+        "--printer-profile", spec["printer_profile"],
+        "--print-profile", spec["print_profile"],
+        "--material-profile", filament_profile,
+        "--no-binary-gcode",
         "--center", spec["center"],
         "--ensure-on-bed",
         "--export-gcode",
@@ -187,6 +203,7 @@ def slice_stl_to_gcode(
 
         filament_used_m = None
         estimated_time = None
+        used_profiles = {}
         with open(output_gcode_path, "r", encoding="utf-8", errors="ignore") as f:
             for line in f:
                 if "filament used [mm] =" in line:
@@ -196,6 +213,16 @@ def slice_stl_to_gcode(
                         pass
                 elif "estimated printing time (normal mode) =" in line:
                     estimated_time = line.split("=")[1].strip()
+                else:
+                    m = re.match(r"; (printer|print|filament)_settings_id = \"?([^\"\n]*)\"?", line)
+                    if m:
+                        used_profiles[m.group(1)] = m.group(2)
+
+        # PrusaSlicer silently falls back to defaults if a preset can't be loaded
+        if used_profiles.get("printer") != spec["printer_profile"]:
+            err_msg = f"PrusaSlicer did not apply the printer profile '{spec['printer_profile']}' (got '{used_profiles.get('printer')}')."
+            logger.error(err_msg)
+            return {"success": False, "error": err_msg, "error_key": "slicer_failed", "gcode_generated": False}
 
         logger.info(f"G-code generated successfully: {output_gcode_path} ({filament_used_m}m, {estimated_time})")
         return {
@@ -203,6 +230,8 @@ def slice_stl_to_gcode(
             "gcode_generated": True,
             "printer_model": printer_model,
             "printer_name": spec["name"],
+            "filament": filament,
+            "profiles": used_profiles,
             "gcode_path": output_gcode_path,
             "gcode_size_bytes": os.path.getsize(output_gcode_path),
             "filament_used_meters": filament_used_m,
@@ -222,5 +251,6 @@ def slice_stl_to_gcode(
         return {
             "success": False,
             "error": str(e),
+            "error_key": "slicer_failed",
             "gcode_generated": False,
         }

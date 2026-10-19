@@ -50,7 +50,14 @@
       'mode.stampDesc': 'Generates outer cutter blade + solid backing plate + recessed interior imprint ribs.',
 
       'printer.title': '3. Target Prusa Printer (G-code)',
-      'printer.option': '{name} (0.4 mm nozzle · {bed} mm)',
+      'printer.option': '{name} (0.4 mm{hf} nozzle · {bed} mm)',
+      'filament.label': 'Filament',
+      'filament.pla': 'PLA',
+      'filament.petg': 'PETG',
+      'filament.profileHint': 'Sliced with Prusa\'s official printer and filament profiles (bed levelling, temperatures, purge line).',
+      'filament.petgHint': 'PETG sticks too well to smooth PEI: apply glue stick as a separating layer, or use a textured sheet.',
+      'results.material': 'Material:',
+      'param.material': 'Material',
 
       'size.title': '4. Sizing & Geometry',
       'size.target': 'Target Inner Cut Size',
@@ -213,7 +220,14 @@
       'mode.stampDesc': 'Génère la lame extérieure + une plaque de fond pleine + des nervures intérieures en retrait pour marquer la pâte.',
 
       'printer.title': '3. Imprimante Prusa cible (G-code)',
-      'printer.option': '{name} (buse 0,4 mm · {bed} mm)',
+      'printer.option': '{name} (buse 0,4 mm{hf} · {bed} mm)',
+      'filament.label': 'Filament',
+      'filament.pla': 'PLA',
+      'filament.petg': 'PETG',
+      'filament.profileHint': 'Tranché avec les profils officiels Prusa de l\'imprimante et du filament (nivellement du plateau, températures, ligne de purge).',
+      'filament.petgHint': 'Le PETG adhère trop fortement au PEI lisse : appliquez de la colle en bâton comme couche de séparation, ou utilisez une plaque texturée.',
+      'results.material': 'Matériau :',
+      'param.material': 'Matériau',
 
       'size.title': '4. Dimensions et géométrie',
       'size.target': 'Taille de découpe intérieure',
@@ -376,7 +390,14 @@
       'mode.stampDesc': 'Создаёт внешнее лезвие, сплошную основу и утопленные внутренние рёбра для оттиска на тесте.',
 
       'printer.title': '3. Принтер Prusa (G-code)',
-      'printer.option': '{name} (сопло 0,4 мм · {bed} мм)',
+      'printer.option': '{name} (сопло 0,4 мм{hf} · {bed} мм)',
+      'filament.label': 'Филамент',
+      'filament.pla': 'PLA',
+      'filament.petg': 'PETG',
+      'filament.profileHint': 'Нарезка по официальным профилям Prusa для принтера и филамента (выравнивание стола, температуры, линия очистки).',
+      'filament.petgHint': 'PETG слишком сильно прилипает к гладкому PEI: нанесите клей-карандаш как разделительный слой или используйте текстурированный лист.',
+      'results.material': 'Материал:',
+      'param.material': 'Материал',
 
       'size.title': '4. Размеры и геометрия',
       'size.target': 'Внутренний размер вырубки',
@@ -540,7 +561,14 @@
       'mode.stampDesc': 'Створює зовнішнє лезо, суцільну основу та заглиблені внутрішні ребра для відбитка на тісті.',
 
       'printer.title': '3. Принтер Prusa (G-code)',
-      'printer.option': '{name} (сопло 0,4 мм · {bed} мм)',
+      'printer.option': '{name} (сопло 0,4 мм{hf} · {bed} мм)',
+      'filament.label': 'Філамент',
+      'filament.pla': 'PLA',
+      'filament.petg': 'PETG',
+      'filament.profileHint': 'Нарізання за офіційними профілями Prusa для принтера та філаменту (вирівнювання столу, температури, лінія очищення).',
+      'filament.petgHint': 'PETG надто сильно прилипає до гладкого PEI: нанесіть клей-олівець як розділювальний шар або використайте текстурований лист.',
+      'results.material': 'Матеріал:',
+      'param.material': 'Матеріал',
 
       'size.title': '4. Розміри та геометрія',
       'size.target': 'Внутрішній розмір вирубки',
