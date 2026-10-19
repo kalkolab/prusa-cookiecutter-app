@@ -3,16 +3,19 @@
 # Cloud Run service at /data/library. Safe to re-run.
 #
 # Usage (e.g. in Cloud Shell):  ./scripts/setup_library_bucket.sh
-# Override defaults with env vars: PROJECT, REGION, SERVICE, BUCKET.
+# Override defaults with env vars: PROJECT, REGION, SERVICE, BUCKET, BUCKET_LOCATION.
+# The bucket defaults to us-central1 so it stays inside the Cloud Storage Always Free
+# tier (5 GB Standard storage; only us-central1, us-east1 and us-west1 qualify).
 set -euo pipefail
 
 PROJECT="${PROJECT:-prusa-cookiecutter-app}"
 REGION="${REGION:-europe-west1}"
 SERVICE="${SERVICE:-cookie-cutter-studio}"
 BUCKET="${BUCKET:-${PROJECT}-library}"
+BUCKET_LOCATION="${BUCKET_LOCATION:-us-central1}"
 MOUNT_PATH="/data/library"
 
-echo "Project: $PROJECT | Region: $REGION | Service: $SERVICE | Bucket: gs://$BUCKET"
+echo "Project: $PROJECT | Region: $REGION | Service: $SERVICE | Bucket: gs://$BUCKET ($BUCKET_LOCATION)"
 
 gcloud services enable storage.googleapis.com --project="$PROJECT"
 
@@ -21,9 +24,11 @@ if gcloud storage buckets describe "gs://$BUCKET" --project="$PROJECT" >/dev/nul
 else
   gcloud storage buckets create "gs://$BUCKET" \
     --project="$PROJECT" \
-    --location="$REGION" \
+    --location="$BUCKET_LOCATION" \
+    --default-storage-class=STANDARD \
     --uniform-bucket-level-access \
-    --public-access-prevention
+    --public-access-prevention \
+    --soft-delete-duration=0
 fi
 
 # Service account the Cloud Run service runs as (falls back to the default compute account)

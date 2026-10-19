@@ -133,11 +133,14 @@ The quickest way is the bundled script — run it from [Cloud Shell](https://she
 Or do the same steps by hand:
 
 ```bash
-# Create the bucket (same region as the service)
+# Create the bucket in a free-tier region (soft delete off: retained deleted objects are billed)
 gcloud storage buckets create gs://prusa-cookiecutter-app-library \
   --project=prusa-cookiecutter-app \
-  --location=europe-west1 \
-  --uniform-bucket-level-access
+  --location=us-central1 \
+  --default-storage-class=STANDARD \
+  --uniform-bucket-level-access \
+  --public-access-prevention \
+  --soft-delete-duration=0
 
 # Let the Cloud Run service account read and write objects
 # (default: PROJECT_NUMBER-compute@developer.gserviceaccount.com)
@@ -154,7 +157,7 @@ gcloud run services update cookie-cutter-studio \
   --add-volume-mount=volume=library,mount-path=/data/library
 ```
 
-**Cost:** a saved cutter is roughly 1–5 MB (STL + G-code + original image), so even hundreds of cutters stay well under 1 GB — a few cents per month in `europe-west1`, or free within the 5 GB Always Free tier if the bucket is in `us-central1`, `us-east1` or `us-west1`.
+**Cost: $0.** The bucket lives in `us-central1`, which is covered by the Cloud Storage Always Free tier (5 GB Standard storage, 5,000 Class A and 50,000 Class B operations, 100 GB egress per month). A saved cutter is roughly 1–5 MB (STL + G-code + original image), so hundreds of cutters fit. The service stays in `europe-west1`; the cross-region hop adds a little latency to library calls but the traffic falls within the free egress. Soft delete is disabled because retained deleted objects would be billed.
 
 **Layout:** each cutter is a folder `<id>/` containing `meta.json` (name, owner, parameters, dimensions, slicing stats), the STL, the G-code, `original.<ext>`, `mask.png` and `thumb.jpg`. You can browse or back it up directly with `gcloud storage ls gs://prusa-cookiecutter-app-library/`.
 
