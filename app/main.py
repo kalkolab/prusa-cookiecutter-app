@@ -10,7 +10,7 @@ import base64
 import shutil
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import (
     FastAPI,
@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from app.geometry import image_to_cookie_cutter
 from app.slicer import slice_stl_to_gcode, find_prusa_slicer_binary, PRINTER_SPECS
 from app.auth import verify_user_token, is_auth_enabled, GOOGLE_CLIENT_ID
-from app import library
+from app import library, plate
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app")
@@ -277,7 +277,7 @@ async def download_file(job_id: str, filename: str):
     if not target_file.exists():
         raise HTTPException(status_code=404, detail="Requested file not found or expired.")
 
-    media_type = "model/stl" if safe_filename.endswith(".stl") else "text/x.gcode"
+    media_type = {".stl": "model/stl", ".3mf": "model/3mf"}.get(Path(safe_filename).suffix.lower(), "text/x.gcode")
     return FileResponse(
         path=target_file,
         media_type=media_type,
@@ -372,6 +372,80 @@ def delete_library_item(item_id: str, user_info: dict = Depends(verify_user_toke
         raise HTTPException(status_code=403, detail="Only the person who saved this cutter can delete it.")
     library.delete_item(item_id)
     return {"deleted": item_id}
+
+
+# ---------------------------------------------------------------------------
+# Print Plate: several library cutters arranged on one bed
+# ---------------------------------------------------------------------------
+
+class PlateItem(BaseModel):
+    id: str
+    quantity: int = 1
+
+
+class PlateRequest(BaseModel):
+    items: List[PlateItem]
+    printer_model: str = "mk4s"
+
+
+@app.post("/api/plate")
+def build_print_plate(req: PlateRequest, background_tasks: BackgroundTasks, user_info: dict = Depends(verify_user_token)):
+    """
+    Arranges the selected library cutters on the printer's bed without overlap and
+    exports a combined STL, a PrusaSlicer 3MF project and sliced G-code.
+    """
+    background_tasks.add_task(cleanup_old_jobs)
+
+    printer = req.printer_model.lower().strip()
+    if printer not in PRINTER_SPECS:
+        raise HTTPException(status_code=400, detail=f"Unknown printer model: {req.printer_model}")
+    spec = PRINTER_SPECS[printer]
+
+    parts = []
+    for item in req.items:
+        if not 1 <= item.quantity <= plate.MAX_COPIES:
+            raise HTTPException(status_code=400, detail=f"Quantity must be between 1 and {plate.MAX_COPIES}.")
+        meta = get_library_item_or_404(item.id)
+        stl_path = library.item_file_path(item.id, meta["files"]["stl"])
+        if not stl_path:
+            raise HTTPException(status_code=404, detail=f"STL for '{meta['name']}' is missing.")
+        parts.append({"name": meta["name"], "stl_path": stl_path, "quantity": item.quantity})
+
+    job_id = str(uuid.uuid4())
+    job_dir = JOBS_DIR / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        result = plate.build_plate(parts, spec["bed_x"], spec["bed_y"], BED_MARGIN_MM, job_dir)
+    except ValueError as e:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        logger.exception("Failed to build print plate")
+        raise HTTPException(status_code=500, detail=f"Could not build the print plate: {e}")
+
+    gcode_filename = f"plate_{printer}.gcode"
+    slicing_result = slice_stl_to_gcode(
+        stl_path=str(job_dir / "plate.stl"),
+        output_gcode_path=str(job_dir / gcode_filename),
+        printer_model=printer,
+        threads=2,
+        timeout_seconds=150,
+    )
+
+    return {
+        "job_id": job_id,
+        **result,
+        "printer_model": printer,
+        "printer_name": spec["name"],
+        "slicing": slicing_result,
+        "downloads": {
+            "stl_url": f"/api/download/{job_id}/plate.stl",
+            "project_url": f"/api/download/{job_id}/plate.3mf",
+            "gcode_url": f"/api/download/{job_id}/{gcode_filename}" if slicing_result.get("gcode_generated") else None,
+            "gcode_filename": gcode_filename,
+        },
+    }
 
 
 if __name__ == "__main__":

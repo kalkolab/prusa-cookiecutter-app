@@ -43,6 +43,10 @@
         <i data-lucide="library" class="w-4 h-4 text-prusa-orange"></i>
         <span>Library</span>
       </button>
+      <button onclick="openLibrary(true)" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center space-x-1.5 transition">
+        <i data-lucide="layout-grid" class="w-4 h-4 text-prusa-orange"></i>
+        <span class="hidden sm:inline">Print Plate</span>
+      </button>
       <div id="authStatusBadge" class="hidden text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700"></div>
       <div id="g_id_signin_container"></div>
       <div id="userProfile" class="hidden flex items-center space-x-2 sm:space-x-3">
@@ -323,9 +327,65 @@
             <option value="outline">Cutter only</option>
             <option value="stamp">Cutter + Stamp</option>
           </select>
+          <button id="plateModeBtn" type="button" onclick="setPlateMode(!plateMode)" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center justify-center space-x-1.5 transition">
+            <i data-lucide="layout-grid" class="w-4 h-4 text-prusa-orange"></i>
+            <span id="plateModeText">Select for print plate</span>
+          </button>
         </div>
         <p id="libraryStatus" class="text-xs text-slate-400"></p>
         <div id="libraryGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"></div>
+      </div>
+
+      <!-- Selection bar (print plate mode) -->
+      <div id="plateSelectionBar" class="hidden flex-shrink-0 border-t border-slate-800 px-4 sm:px-5 py-3 flex items-center justify-between bg-slate-900">
+        <span id="plateSelectionText" class="text-xs text-slate-300">Tap cutters to add them to the plate</span>
+        <button id="plateNextBtn" type="button" onclick="showPlateView()" disabled class="px-4 py-2 rounded-lg bg-prusa-orange hover-bg-prusa text-xs font-semibold text-white flex items-center space-x-1.5 transition disabled:opacity-40">
+          <span>Next</span><i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Print Plate View -->
+      <div id="plateView" class="hidden flex-1 overflow-y-auto p-4 sm:p-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="space-y-3">
+            <div class="text-[11px] font-semibold uppercase text-slate-400">Cutters on the plate</div>
+            <div id="plateItemList" class="space-y-2"></div>
+            <div>
+              <label for="platePrinterSelect" class="block text-[11px] font-semibold uppercase text-slate-400 mb-1">Printer</label>
+              <select id="platePrinterSelect" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-xs text-slate-200 focus:border-prusa focus:outline-none">
+                <option value="mk4s">Prusa MK4S (250×210 mm)</option>
+                <option value="mk4">Prusa MK4 (250×210 mm)</option>
+                <option value="mk3s">Prusa MK3S+ (250×210 mm)</option>
+                <option value="mini">Prusa MINI+ (180×180 mm)</option>
+              </select>
+            </div>
+            <button id="plateBuildBtn" type="button" onclick="buildPlate()" class="w-full py-3 px-4 rounded-xl font-bold text-sm bg-prusa-orange hover-bg-prusa transition text-white shadow flex items-center justify-center space-x-2 disabled:opacity-50">
+              <i data-lucide="cpu" class="w-5 h-5"></i>
+              <span id="plateBuildText">Arrange &amp; Slice</span>
+            </button>
+            <p class="text-[10px] text-slate-500">Cutters are packed by their bounding boxes with 5 mm gaps and may be rotated 90° to fit.</p>
+          </div>
+          <div id="plateResult" class="hidden space-y-3">
+            <div class="text-[11px] font-semibold uppercase text-slate-400">Bed layout (top view)</div>
+            <svg id="plateSvg" class="w-full rounded-lg border border-slate-700 bg-[#0b1120]" role="img" aria-label="Bed layout"></svg>
+            <div id="plateStats" class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs bg-slate-800/60 border border-slate-700 rounded-xl p-3"></div>
+            <div id="plateNotice" class="hidden bg-amber-950/60 border border-amber-800 rounded-lg p-2.5 text-xs text-amber-200"></div>
+            <div class="grid grid-cols-2 gap-2">
+              <a id="plateGcodeBtn" href="#" class="py-2.5 px-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
+                <i data-lucide="file-code" class="w-4 h-4"></i><span>G-code</span>
+              </a>
+              <a id="plateProjectBtn" href="#" class="py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
+                <i data-lucide="package" class="w-4 h-4"></i><span>Prusa project (.3mf)</span>
+              </a>
+              <a id="plateStlBtn" href="#" class="py-2.5 px-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
+                <i data-lucide="box" class="w-4 h-4"></i><span>Combined STL</span>
+              </a>
+              <button type="button" onclick="viewPlate3D()" class="py-2.5 px-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
+                <i data-lucide="eye" class="w-4 h-4"></i><span>View on 3D bed</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Detail View -->
@@ -370,6 +430,9 @@
                 <i data-lucide="download" class="w-4 h-4"></i><span id="detailGcodeText">G-code</span>
               </button>
             </div>
+            <button type="button" onclick="addCurrentItemToPlate()" class="w-full py-2 px-3 rounded-xl border border-slate-700 text-slate-200 hover:bg-slate-800 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
+              <i data-lucide="layout-grid" class="w-4 h-4 text-prusa-orange"></i><span>Add to print plate</span>
+            </button>
             <button id="detailDeleteBtn" onclick="deleteLibraryItem()" class="w-full py-2 px-3 rounded-xl border border-red-900 text-red-400 hover:bg-red-950/60 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
               <i data-lucide="trash-2" class="w-4 h-4"></i><span>Delete from Library</span>
             </button>
@@ -392,7 +455,10 @@
     let lastJobSourceId = null;
     let libraryItems = [];
     let currentLibraryItem = null;
-    let sourceLibraryItem = null;  // library cutter whose image is loaded in the editor
+    let sourceLibraryItem = null;
+    let plateMode = false;
+    const plateSelection = new Map();  // library item id -> quantity
+    let lastPlate = null;  // library cutter whose image is loaded in the editor
     const blobUrlCache = new Map();
 
     const dropzone = document.getElementById('dropzone');
@@ -672,6 +738,11 @@
         const loader = new THREE.STLLoader();
         const geometry = loader.parse(buffer);
         geometry.computeVertexNormals();
+        // Center on the bed in XY (plate STLs are in bed coordinates; single cutters already are centered)
+        geometry.computeBoundingBox();
+        const center = new THREE.Vector3();
+        geometry.boundingBox.getCenter(center);
+        geometry.translate(-center.x, -center.y, 0);
 
         if (currentGroup) scene.remove(currentGroup);
         currentGroup = new THREE.Group();
@@ -865,8 +936,9 @@
       }
     }
 
-    function openLibrary() {
+    function openLibrary(selectForPlate = false) {
       document.getElementById('libraryModal').classList.remove('hidden');
+      setPlateMode(selectForPlate || plateSelection.size > 0);
       showLibraryList();
       loadLibrary();
     }
@@ -880,7 +952,9 @@
       document.getElementById('libraryTitle').innerText = 'Cutter Library';
       document.getElementById('libraryBackBtn').classList.add('hidden');
       document.getElementById('libraryDetailView').classList.add('hidden');
+      document.getElementById('plateView').classList.add('hidden');
       document.getElementById('libraryListView').classList.remove('hidden');
+      updatePlateSelectionBar();
     }
 
     async function loadLibrary() {
@@ -929,8 +1003,17 @@
       for (const item of items) {
         const card = document.createElement('button');
         card.type = 'button';
-        card.className = 'text-left bg-slate-800/60 hover:bg-slate-800 border border-slate-700 hover:border-prusa rounded-xl overflow-hidden transition';
-        card.onclick = () => showLibraryDetail(item);
+        const selected = plateMode && plateSelection.has(item.id);
+        card.className = 'relative text-left bg-slate-800/60 hover:bg-slate-800 border rounded-xl overflow-hidden transition ' +
+          (selected ? 'border-prusa ring-2 ring-[#fa6831]' : 'border-slate-700 hover:border-prusa');
+        card.setAttribute('aria-pressed', plateMode ? String(selected) : 'false');
+        card.onclick = () => plateMode ? togglePlateItem(item.id) : showLibraryDetail(item);
+        if (selected) {
+          const badge = document.createElement('span');
+          badge.className = 'absolute top-1.5 right-1.5 min-w-[1.5rem] h-6 px-1.5 rounded-full bg-prusa-orange text-white text-[11px] font-bold flex items-center justify-center shadow';
+          badge.textContent = `×${plateSelection.get(item.id)}`;
+          card.appendChild(badge);
+        }
 
         const img = document.createElement('img');
         img.className = 'w-full aspect-square object-contain bg-white';
@@ -961,6 +1044,8 @@
       document.getElementById('libraryTitle').innerText = item.name;
       document.getElementById('libraryBackBtn').classList.remove('hidden');
       document.getElementById('libraryListView').classList.add('hidden');
+      document.getElementById('plateView').classList.add('hidden');
+      document.getElementById('plateSelectionBar').classList.add('hidden');
       document.getElementById('libraryDetailView').classList.remove('hidden');
 
       const original = document.getElementById('detailOriginal');
@@ -1023,6 +1108,207 @@
         relatedList.appendChild(chip);
       }
       document.getElementById('detailRelated').classList.toggle('hidden', !related.length);
+    }
+
+    // ---------------------------------------------------------------------
+    // Print Plate: several library cutters on one bed
+    // ---------------------------------------------------------------------
+    function setPlateMode(on) {
+      plateMode = on;
+      document.getElementById('plateModeText').innerText = on ? 'Done selecting' : 'Select for print plate';
+      updatePlateSelectionBar();
+      renderLibraryList();
+    }
+
+    function togglePlateItem(id) {
+      if (plateSelection.has(id)) plateSelection.delete(id);
+      else plateSelection.set(id, 1);
+      renderLibraryList();
+      updatePlateSelectionBar();
+    }
+
+    function updatePlateSelectionBar() {
+      const listVisible = !document.getElementById('libraryListView').classList.contains('hidden');
+      document.getElementById('plateSelectionBar').classList.toggle('hidden', !(plateMode && listVisible));
+      const copies = [...plateSelection.values()].reduce((a, b) => a + b, 0);
+      document.getElementById('plateSelectionText').innerText = plateSelection.size
+        ? `${plateSelection.size} cutter${plateSelection.size > 1 ? 's' : ''} selected (${copies} on the plate)`
+        : 'Tap cutters to add them to the plate';
+      document.getElementById('plateNextBtn').disabled = plateSelection.size === 0;
+    }
+
+    function addCurrentItemToPlate() {
+      const item = currentLibraryItem;
+      if (!item) return;
+      plateSelection.set(item.id, (plateSelection.get(item.id) || 0) + 1);
+      showPlateView();
+    }
+
+    function showPlateView() {
+      currentLibraryItem = null;
+      document.getElementById('libraryTitle').innerText = 'Print Plate';
+      document.getElementById('libraryBackBtn').classList.remove('hidden');
+      document.getElementById('libraryListView').classList.add('hidden');
+      document.getElementById('libraryDetailView').classList.add('hidden');
+      document.getElementById('plateSelectionBar').classList.add('hidden');
+      document.getElementById('plateView').classList.remove('hidden');
+      document.getElementById('platePrinterSelect').value = printerSelect.value;
+      renderPlateItems();
+    }
+
+    function renderPlateItems() {
+      const list = document.getElementById('plateItemList');
+      list.replaceChildren();
+      for (const [id, qty] of plateSelection) {
+        const item = libraryItems.find(i => i.id === id);
+        if (!item) { plateSelection.delete(id); continue; }
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-2 bg-slate-800/60 border border-slate-700 rounded-lg p-2';
+        const img = document.createElement('img');
+        img.className = 'w-10 h-10 rounded object-contain bg-white flex-shrink-0';
+        img.alt = '';
+        const thumbUrl = item.urls.thumb || item.urls.original;
+        if (thumbUrl) authBlobUrl(thumbUrl).then(u => img.src = u).catch(() => {});
+        const info = document.createElement('div');
+        info.className = 'flex-1 min-w-0';
+        const name = document.createElement('div');
+        name.className = 'text-xs font-semibold text-slate-100 truncate';
+        name.textContent = item.name;
+        const size = document.createElement('div');
+        size.className = 'text-[10px] text-slate-400 font-mono';
+        size.textContent = item.stats?.print_width_mm ? `${item.stats.print_width_mm} × ${item.stats.print_length_mm} mm footprint` : itemSizeText(item);
+        info.append(name, size);
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.min = 1;
+        qtyInput.max = 30;
+        qtyInput.value = qty;
+        qtyInput.setAttribute('aria-label', `Quantity of ${item.name}`);
+        qtyInput.className = 'w-14 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 text-center focus:border-prusa focus:outline-none';
+        qtyInput.onchange = () => {
+          const v = Math.max(1, Math.min(30, parseInt(qtyInput.value, 10) || 1));
+          qtyInput.value = v;
+          plateSelection.set(id, v);
+        };
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'p-1.5 text-slate-400 hover:text-red-400';
+        remove.setAttribute('aria-label', `Remove ${item.name}`);
+        remove.textContent = '✕';
+        remove.onclick = () => { plateSelection.delete(id); renderPlateItems(); };
+        row.append(img, info, qtyInput, remove);
+        list.appendChild(row);
+      }
+      if (!plateSelection.size) {
+        const empty = document.createElement('p');
+        empty.className = 'text-xs text-slate-400';
+        empty.textContent = 'No cutters selected. Go back and pick some from the library.';
+        list.appendChild(empty);
+      }
+      document.getElementById('plateBuildBtn').disabled = plateSelection.size === 0;
+    }
+
+    async function buildPlate() {
+      const btn = document.getElementById('plateBuildBtn');
+      const text = document.getElementById('plateBuildText');
+      const printer = document.getElementById('platePrinterSelect').value;
+      btn.disabled = true;
+      text.innerText = 'Arranging & slicing…';
+      try {
+        const data = await apiJson('/api/plate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: [...plateSelection].map(([id, quantity]) => ({ id, quantity })),
+            printer_model: printer,
+          }),
+        });
+        lastPlate = data;
+        renderPlateResult(data);
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        btn.disabled = plateSelection.size === 0;
+        text.innerText = 'Arrange & Slice';
+      }
+    }
+
+    function renderPlateResult(data) {
+      document.getElementById('plateResult').classList.remove('hidden');
+
+      // Top view: bed in mm, Y flipped so the front of the bed is at the bottom
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const svg = document.getElementById('plateSvg');
+      const { x: bedX, y: bedY, margin } = data.bed;
+      svg.setAttribute('viewBox', `0 0 ${bedX} ${bedY}`);
+      svg.replaceChildren();
+      const el = (tag, attrs) => {
+        const node = document.createElementNS(svgNS, tag);
+        for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+        return node;
+      };
+      for (let g = 10; g < Math.max(bedX, bedY); g += 10) {
+        if (g < bedX) svg.appendChild(el('line', { x1: g, y1: 0, x2: g, y2: bedY, stroke: '#1e293b', 'stroke-width': 0.4 }));
+        if (g < bedY) svg.appendChild(el('line', { x1: 0, y1: g, x2: bedX, y2: g, stroke: '#1e293b', 'stroke-width': 0.4 }));
+      }
+      svg.appendChild(el('rect', { x: margin, y: margin, width: bedX - 2 * margin, height: bedY - 2 * margin, fill: 'none', stroke: '#334155', 'stroke-dasharray': '3 2', 'stroke-width': 0.6 }));
+      for (const part of data.layout) {
+        const y = bedY - part.y - part.length;
+        svg.appendChild(el('rect', { x: part.x, y, width: part.width, height: part.length, rx: 2, fill: 'rgba(250,104,49,0.25)', stroke: '#fa6831', 'stroke-width': 0.8 }));
+        const label = el('text', { x: part.x + part.width / 2, y: y + part.length / 2, fill: '#f8fafc', 'font-size': Math.max(4, Math.min(9, part.width / 8)), 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-family': 'sans-serif' });
+        label.textContent = part.name;
+        const title = el('title', {});
+        title.textContent = `${part.name}: ${part.width} × ${part.length} mm${part.rotated ? ' (rotated 90°)' : ''}`;
+        label.appendChild(title);
+        svg.appendChild(label);
+      }
+
+      const s = data.slicing || {};
+      const rows = [
+        ['Printer', data.printer_name],
+        ['Cutters', data.copies],
+        ['Plate size', `${data.extents_mm[0]} × ${data.extents_mm[1]} × ${data.extents_mm[2]} mm`],
+        ['Print time', s.estimated_print_time || 'N/A'],
+        ['Filament', s.filament_used_meters ? `${s.filament_used_meters} m` : 'N/A'],
+        ['Triangles', data.triangle_count.toLocaleString()],
+      ];
+      const stats = document.getElementById('plateStats');
+      stats.replaceChildren();
+      for (const [k, v] of rows) {
+        const dt = document.createElement('div');
+        dt.className = 'text-slate-400';
+        dt.textContent = k;
+        const dd = document.createElement('div');
+        dd.className = 'text-slate-200 font-mono text-right';
+        dd.textContent = v;
+        stats.append(dt, dd);
+      }
+
+      const gcodeBtn = document.getElementById('plateGcodeBtn');
+      const notice = document.getElementById('plateNotice');
+      if (data.downloads.gcode_url) {
+        gcodeBtn.href = data.downloads.gcode_url;
+        gcodeBtn.download = data.downloads.gcode_filename;
+        gcodeBtn.classList.remove('hidden');
+        notice.classList.add('hidden');
+      } else {
+        gcodeBtn.classList.add('hidden');
+        notice.textContent = 'G-code slicing note: ' + (s.error || 'no G-code was produced.');
+        notice.classList.remove('hidden');
+      }
+      const projectBtn = document.getElementById('plateProjectBtn');
+      projectBtn.href = data.downloads.project_url;
+      projectBtn.download = 'cookie_cutter_plate.3mf';
+      const stlBtn = document.getElementById('plateStlBtn');
+      stlBtn.href = data.downloads.stl_url;
+      stlBtn.download = 'cookie_cutter_plate.stl';
+    }
+
+    async function viewPlate3D() {
+      if (!lastPlate) return;
+      closeLibrary();
+      setPrinter(lastPlate.printer_model);
+      await loadSTL(lastPlate.downloads.stl_url);
     }
 
     function setSourceLibraryItem(item) {
