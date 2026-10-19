@@ -27,7 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.geometry import image_to_cookie_cutter
-from app.slicer import slice_stl_to_gcode, find_prusa_slicer_binary, PRINTER_SPECS
+from app.slicer import slice_stl_to_gcode, find_prusa_slicer_binary, PRINTER_SPECS, FILAMENTS, DEFAULT_FILAMENT
 from app.auth import verify_user_token, is_auth_enabled, GOOGLE_CLIENT_ID
 from app import library, plate
 from app.i18n import UserError, translate, request_language
@@ -93,6 +93,7 @@ async def get_system_status():
         "prusaslicer_available": slicer is not None,
         "binary": slicer,
         "supported_printers": list(PRINTER_SPECS.keys()),
+        "supported_filaments": list(FILAMENTS),
     }
 
 
@@ -116,6 +117,13 @@ PARAM_LIMITS = {
 BED_MARGIN_MM = 5.0
 
 
+def validate_filament(filament: str) -> str:
+    clean = (filament or "").lower().strip()
+    if clean not in FILAMENTS:
+        raise UserError("unknown_filament", filament=filament)
+    return clean
+
+
 def validate_param(name: str, value: float) -> None:
     lo, hi = PARAM_LIMITS[name]
     if not (lo <= value <= hi):
@@ -133,6 +141,7 @@ def generate_model(
     invert: bool = Form(False),
     stamp_mode: bool = Form(False),
     printer_model: str = Form("mk4s"),
+    filament: str = Form(DEFAULT_FILAMENT),
     user_info: dict = Depends(verify_user_token),
 ):
     """
@@ -149,6 +158,7 @@ def generate_model(
     validate_param("blade_height", blade_height)
     validate_param("handle_width", handle_width)
     validate_param("simplify_tol", simplify_tol)
+    filament = validate_filament(filament)
 
     if not image.content_type.startswith("image/"):
         raise UserError("not_image")
@@ -199,7 +209,7 @@ def generate_model(
             stl_path=str(stl_path),
             output_gcode_path=str(gcode_path),
             printer_model=clean_printer,
-            threads=2,
+            filament=filament,
             timeout_seconds=50,
         )
 
@@ -233,6 +243,7 @@ def generate_model(
                 "invert": invert,
                 "stamp_mode": stamp_mode,
                 "printer_model": clean_printer,
+                "filament": filament,
             },
             "printer_name": spec["name"],
             "dimensions": dims,
@@ -258,6 +269,7 @@ def generate_model(
                 "slicing": slicing_result,
                 "printer_model": clean_printer,
                 "printer_name": PRINTER_SPECS[clean_printer]["name"],
+                "filament": filament,
                 "downloads": {
                     "stl_url": f"/api/download/{job_id}/{stl_filename}",
                     "stl_filename": stl_filename,
@@ -401,6 +413,7 @@ class PlateItem(BaseModel):
 class PlateRequest(BaseModel):
     items: List[PlateItem]
     printer_model: str = "mk4s"
+    filament: str = DEFAULT_FILAMENT
 
 
 @app.post("/api/plate")
@@ -415,6 +428,7 @@ def build_print_plate(req: PlateRequest, background_tasks: BackgroundTasks, user
     if printer not in PRINTER_SPECS:
         raise UserError("unknown_printer", printer=req.printer_model)
     spec = PRINTER_SPECS[printer]
+    filament = validate_filament(req.filament)
 
     parts = []
     for item in req.items:
@@ -444,7 +458,7 @@ def build_print_plate(req: PlateRequest, background_tasks: BackgroundTasks, user
         stl_path=str(job_dir / "plate.stl"),
         output_gcode_path=str(job_dir / gcode_filename),
         printer_model=printer,
-        threads=2,
+        filament=filament,
         timeout_seconds=150,
     )
 
@@ -453,6 +467,7 @@ def build_print_plate(req: PlateRequest, background_tasks: BackgroundTasks, user
         **result,
         "printer_model": printer,
         "printer_name": spec["name"],
+        "filament": filament,
         "slicing": slicing_result,
         "downloads": {
             "stl_url": f"/api/download/{job_id}/plate.stl",

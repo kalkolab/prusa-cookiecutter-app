@@ -1,7 +1,8 @@
 # Production Dockerfile for Prusa Cookie Cutter & Stamp Studio
 # Compatible with Google Cloud Run and Local Docker
 
-FROM python:3.11-slim-bookworm
+# Debian 13 (trixie) ships PrusaSlicer 2.9, whose bundled Prusa profiles include the MK4S
+FROM python:3.12-slim-trixie
 
 # Avoid interactive prompts during Debian apt installation
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -9,15 +10,12 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PORT=8080 \
     JOBS_DIR=/var/tmp/cookiecutter_jobs \
     LIBRARY_DIR=/data/library \
+    PRUSASLICER_DATADIR=/opt/prusaslicer-data \
     HOME=/var/tmp/app_home
 
-# Install PrusaSlicer and graphics/mesh rendering runtime libraries
+# Install PrusaSlicer (CLI slicing is headless; no X server needed)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     prusa-slicer \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libglu1-mesa \
-    xvfb \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
@@ -31,8 +29,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY slicer_config.ini .
 COPY app/ ./app/
+
+# Install Prusa's printer/filament profiles into a PrusaSlicer config folder once at build time
+RUN python3 -c "from app.slicer import ensure_datadir; ensure_datadir()" && \
+    chmod -R 777 /opt/prusaslicer-data
 
 # Expose HTTP port (Cloud Run defaults to 8080)
 EXPOSE 8080

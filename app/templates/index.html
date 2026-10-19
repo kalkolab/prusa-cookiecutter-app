@@ -153,13 +153,23 @@
         <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5" data-i18n="printer.title">3. Target Prusa Printer (G-code)</label>
         <div class="relative">
           <select id="printerSelect" onchange="onPrinterChange()" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2.5 text-xs text-slate-200 focus:border-prusa focus:outline-none appearance-none cursor-pointer">
-            <option value="mk4s" selected data-i18n="printer.option" data-i18n-params='{"name":"Prusa MK4S","bed":"250×210"}'>Prusa MK4S (0.4 mm nozzle · 250×210 mm)</option>
-            <option value="mk4" data-i18n="printer.option" data-i18n-params='{"name":"Prusa MK4","bed":"250×210"}'>Prusa MK4 (0.4 mm nozzle · 250×210 mm)</option>
-            <option value="mk3s" data-i18n="printer.option" data-i18n-params='{"name":"Prusa MK3S+","bed":"250×210"}'>Prusa MK3S+ (0.4 mm nozzle · 250×210 mm)</option>
-            <option value="mini" data-i18n="printer.option" data-i18n-params='{"name":"Prusa MINI+","bed":"180×180"}'>Prusa MINI+ (0.4 mm nozzle · 180×180 mm)</option>
+            <option value="mk4s" selected data-i18n="printer.option" data-i18n-params='{"name":"Prusa MK4S","hf":" HF","bed":"250×210"}'>Prusa MK4S (0.4 mm HF nozzle · 250×210 mm)</option>
+            <option value="mk4" data-i18n="printer.option" data-i18n-params='{"name":"Prusa MK4","hf":"","bed":"250×210"}'>Prusa MK4 (0.4 mm nozzle · 250×210 mm)</option>
+            <option value="mk3s" data-i18n="printer.option" data-i18n-params='{"name":"Prusa MK3S+","hf":"","bed":"250×210"}'>Prusa MK3S+ (0.4 mm nozzle · 250×210 mm)</option>
+            <option value="mini" data-i18n="printer.option" data-i18n-params='{"name":"Prusa MINI+","hf":"","bed":"180×180"}'>Prusa MINI+ (0.4 mm nozzle · 180×180 mm)</option>
           </select>
           <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none"></i>
         </div>
+        <label for="filamentSelect" class="block text-[11px] font-semibold uppercase text-slate-400 mt-2.5 mb-1" data-i18n="filament.label">Filament</label>
+        <div class="relative">
+          <select id="filamentSelect" onchange="onFilamentChange()" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2.5 text-xs text-slate-200 focus:border-prusa focus:outline-none appearance-none cursor-pointer">
+            <option value="pla" selected data-i18n="filament.pla">PLA</option>
+            <option value="petg" data-i18n="filament.petg">PETG</option>
+          </select>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none"></i>
+        </div>
+        <p class="mt-1 text-[10px] text-slate-500" data-i18n="filament.profileHint">Sliced with Prusa's official printer and filament profiles (bed levelling, temperatures, purge line).</p>
+        <p id="petgHint" class="hidden mt-1 text-[10px] text-amber-300" data-i18n="filament.petgHint">PETG sticks too well to smooth PEI: apply glue stick as a separating layer, or use a textured sheet.</p>
       </section>
 
       <!-- Dimensions & Parameters -->
@@ -231,6 +241,7 @@
             <div><span data-i18n="results.printer">Printer:</span> <span id="resPrinter" class="text-prusa-orange font-semibold font-mono">MK4S</span></div>
             <div><span data-i18n="results.printTime">Print Time:</span> <span id="resPrintTime" class="text-slate-200 font-mono">--</span></div>
             <div><span data-i18n="results.filament">Filament:</span> <span id="resFilament" class="text-slate-200 font-mono">--</span></div>
+            <div><span data-i18n="results.material">Material:</span> <span id="resMaterial" class="text-slate-200 font-mono">--</span></div>
             <div><span data-i18n="results.triangles">Triangles:</span> <span id="resTriangles" class="text-slate-200 font-mono">--</span></div>
           </div>
         </div>
@@ -367,6 +378,13 @@
                 <option value="mini">Prusa MINI+ (180×180 mm)</option>
               </select>
             </div>
+            <div>
+              <label for="plateFilamentSelect" class="block text-[11px] font-semibold uppercase text-slate-400 mb-1" data-i18n="filament.label">Filament</label>
+              <select id="plateFilamentSelect" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-xs text-slate-200 focus:border-prusa focus:outline-none">
+                <option value="pla" data-i18n="filament.pla">PLA</option>
+                <option value="petg" data-i18n="filament.petg">PETG</option>
+              </select>
+            </div>
             <button id="plateBuildBtn" type="button" onclick="buildPlate()" class="w-full py-3 px-4 rounded-xl font-bold text-sm bg-prusa-orange hover-bg-prusa transition text-white shadow flex items-center justify-center space-x-2 disabled:opacity-50">
               <i data-lucide="cpu" class="w-5 h-5"></i>
               <span id="plateBuildText" data-i18n="plate.build">Arrange &amp; Slice</span>
@@ -500,6 +518,7 @@
     const removeImageBtn = document.getElementById('removeImageBtn');
 
     const printerSelect = document.getElementById('printerSelect');
+    const filamentSelect = document.getElementById('filamentSelect');
     const targetSizeInput = document.getElementById('targetSizeInput');
     const targetSizeVal = document.getElementById('targetSizeVal');
     const bladeHeightInput = document.getElementById('bladeHeightInput');
@@ -649,6 +668,10 @@
 
       window.addEventListener('resize', onWindowResize);
       animate();
+    }
+
+    function onFilamentChange() {
+      document.getElementById('petgHint').classList.toggle('hidden', filamentSelect.value !== 'petg');
     }
 
     function onPrinterChange() {
@@ -847,6 +870,7 @@
       document.getElementById('resTriangles').innerText = fmtNumber(s.triangle_count);
       document.getElementById('resPrintTime').innerText = data.slicing?.estimated_print_time || t('common.na');
       document.getElementById('resFilament').innerText = data.slicing?.filament_used_meters ? `${data.slicing.filament_used_meters} ${t('unit.m')}` : t('common.na');
+      document.getElementById('resMaterial').innerText = t('filament.' + (data.filament || 'pla'));
       setText('downloadGcodeText', 'results.downloadGcode', { printer: data.printer_model.toUpperCase() });
       if (data.slicing?.error) slicingNoticeText.innerText = t('slicing.note', { error: slicingErrorText(data.slicing) });
     }
@@ -868,6 +892,7 @@
       formData.append('invert', invertInput.checked);
       formData.append('stamp_mode', currentMode === 'stamp');
       formData.append('printer_model', printerSelect.value);
+      formData.append('filament', filamentSelect.value);
 
       const headers = {};
       if (userToken) {
@@ -1109,6 +1134,7 @@
       const rows = [
         [t('param.mode'), t(item.mode === 'stamp' ? 'mode.stamp' : 'library.filterOutline')],
         [t('param.printer'), item.printer_name || p.printer_model],
+        [t('param.material'), t('filament.' + (p.filament || 'pla'))],
         [t('param.innerCut'), itemSizeText(item)],
         [t('param.printSize'), s.print_width_mm ? mm(`${s.print_width_mm} × ${s.print_length_mm} × ${s.print_height_mm}`) : '--'],
         [t('param.targetSize'), mm(p.target_size_mm)],
@@ -1197,6 +1223,7 @@
       document.getElementById('plateSelectionBar').classList.add('hidden');
       document.getElementById('plateView').classList.remove('hidden');
       document.getElementById('platePrinterSelect').value = printerSelect.value;
+      document.getElementById('plateFilamentSelect').value = filamentSelect.value;
       renderPlateItems();
     }
 
@@ -1265,6 +1292,7 @@
           body: JSON.stringify({
             items: [...plateSelection].map(([id, quantity]) => ({ id, quantity })),
             printer_model: printer,
+            filament: document.getElementById('plateFilamentSelect').value,
           }),
         });
         lastPlate = data;
@@ -1310,6 +1338,7 @@
       const s = data.slicing || {};
       const rows = [
         [t('param.printer'), data.printer_name],
+        [t('param.material'), t('filament.' + (data.filament || 'pla'))],
         [t('plate.cutters'), data.copies],
         [t('plate.size'), mm(`${data.extents_mm[0]} × ${data.extents_mm[1]} × ${data.extents_mm[2]}`)],
         [t('param.printTime'), s.estimated_print_time || t('common.na')],
@@ -1423,6 +1452,7 @@
         setSlider(handleWidthInput, handleWidthVal, p.handle_width, 'mm');
         setSlider(simplifyInput, simplifyVal, p.simplify_tol, 'mm');
         invertInput.checked = !!p.invert;
+        if (p.filament) { filamentSelect.value = p.filament; onFilamentChange(); }
         setMode(p.stamp_mode ? 'stamp' : 'cutter');
         closeLibrary();
         switchMobileView('controls');

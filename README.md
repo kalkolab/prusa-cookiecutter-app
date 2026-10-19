@@ -1,6 +1,6 @@
 # Prusa Cookie Cutter & Stamp Studio 🍪🖨️
 
-A self-contained web application that transforms 2D images (JPEG, PNG, WebP) into production-ready 3D cookie cutters and stamps, complete with real-time 3D Three.js bed preview and headless PrusaSlicer G-code generation for Prusa MK3S+ and MK4 printers.
+A self-contained web application that transforms 2D images (JPEG, PNG, WebP) into production-ready 3D cookie cutters and stamps, complete with real-time 3D Three.js bed preview and headless PrusaSlicer G-code generation for Prusa MK4S, MK4, MK3S+ and MINI+ printers.
 
 ---
 
@@ -13,7 +13,9 @@ A self-contained web application that transforms 2D images (JPEG, PNG, WebP) int
     - **Support Collar:** 1.6 mm wide × 4.0 mm high.
     - **Cutting Blade:** 0.86 mm wide (2 perimeters for 0.4 mm nozzle) × 12.0 mm total height.
   - **Stamp Mode:** Adds a 2.0 mm solid backing plate + recessed interior imprint ribs ($Z = \text{blade\_height} - 2.5\text{ mm}$) to emboss details into dough without cutting through.
-- **Headless Slicing:** Integrates directly with `prusa-slicer` CLI to produce calibrated `.gcode` ready for your SD card or OctoPrint.
+- **Headless Slicing with official Prusa profiles:** Runs the `prusa-slicer` 2.9 CLI with Prusa Research's own printer, print and filament presets (e.g. *Original Prusa MK4S HF0.4 nozzle*, *0.20mm SPEED @MK4S HF0.4*, *Generic PLA @MK4S HF0.4*). The G-code therefore has Prusa's start sequence: printer/nozzle checks, probing with a cool nozzle, mesh bed levelling of the print area, purge line and the filament's temperatures.
+  - Filament choice: **PLA** or **PETG** (PETG on a smooth PEI sheet needs a release agent such as glue stick).
+  - Profile names per printer live in `PRINTER_SPECS` in `app/slicer.py`.
 - **Interactive Three.js 3D Viewport:**
   - Exact $250 \times 210\text{ mm}$ Prusa MK3S/MK4 build plate grid with 10 mm squares.
   - Live millimeter bounding box overlays ($X \times Y \times Z$).
@@ -180,7 +182,7 @@ prusa-cookiecutter-app/
 ├── app/
 │   ├── auth.py              # Google ID token verification & allowlist check
 │   ├── geometry.py          # OpenCV image processing & 3-tier Shapely/Trimesh extrusion
-│   ├── slicer.py            # PrusaSlicer CLI execution & G-code metadata parser
+│   ├── slicer.py            # PrusaSlicer CLI with official Prusa profiles & G-code metadata parser
 │   ├── library.py           # Persistent cutter library (files + metadata in LIBRARY_DIR)
 │   ├── plate.py             # Print plate: bed packing of several cutters, STL/3MF export
 │   ├── i18n.py              # Translated server error messages (EN/FR/RU/UK)
@@ -193,7 +195,6 @@ prusa-cookiecutter-app/
 │   └── setup_library_bucket.sh  # Creates & mounts the library bucket on Cloud Run
 ├── Dockerfile               # Debian container with PrusaSlicer & runtime libraries
 ├── requirements.txt         # Python dependencies
-├── slicer_config.ini        # MK3S+/MK4 calibrated slicing profile
 ├── .dockerignore
 ├── .gitignore
 └── README.md
