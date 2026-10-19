@@ -98,8 +98,18 @@ def slugify(name: str) -> str:
     return slug[:60] or "cookie_cutter"
 
 
-def save_from_job(job_dir: Path, name: str, owner: str) -> Dict[str, Any]:
-    """Copies a finished generation job into the library and returns the new item's metadata."""
+def save_from_job(job_dir: Path, name: str, owner: str, source_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Copies a finished generation job into the library and returns the new item's metadata.
+
+    source_id links a cutter made from a library item's image back to that item. Links
+    always point at the family's first cutter, so variants of variants stay one family.
+    """
+    # A source deleted in the meantime just drops the link rather than failing the save.
+    source = get_item(source_id) if source_id else None
+    if source:
+        source = get_item(source.get("source_id")) or source
+
     job_meta_path = job_dir / JOB_META_FILENAME
     if not job_meta_path.exists():
         raise FileNotFoundError("Generation job not found or expired. Generate the cutter again.")
@@ -125,6 +135,9 @@ def save_from_job(job_dir: Path, name: str, owner: str) -> Dict[str, Any]:
             "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "files": files,
         }
+        if source:
+            meta["source_id"] = source["id"]
+            meta["source_name"] = source["name"]
         # Written last: its presence marks the item as complete.
         (item_dir / META_FILENAME).write_text(json.dumps(meta, indent=2), encoding="utf-8")
     except Exception:

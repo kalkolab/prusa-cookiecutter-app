@@ -20,7 +20,8 @@ A self-contained web application that transforms 2D images (JPEG, PNG, WebP) int
   - 360° orbit controls and camera presets (Perspective / Top View).
 - **Cutter Library:**
   - Save any generated cutter with a name: STL, G-code, original image, detected mask and every parameter are stored together.
-  - Browse, search and filter the library, preview a saved cutter on the 3D bed, download its files, or load its image and settings back into the editor.
+  - Browse, search and filter the library, preview a saved cutter on the 3D bed, or download its files.
+  - Reuse a saved image to make new cutters: start from it with your current settings or with the settings it was saved with. New saves are linked to the original, and each cutter's detail view lists the other cutters made from the same image.
   - Files live in a plain directory (`LIBRARY_DIR`), backed by a Google Cloud Storage bucket on Cloud Run (see [Persistent Library Storage](#5-persistent-library-storage-cloud-storage-bucket)).
 - **Google OAuth 2.0 Allowlist Protection:**
   - Secure access restricted to you and your friends' Google accounts.
