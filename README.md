@@ -23,6 +23,10 @@ A self-contained web application that transforms 2D images (JPEG, PNG, WebP) int
   - Browse, search and filter the library, preview a saved cutter on the 3D bed, or download its files.
   - Reuse a saved image to make new cutters: start from it with your current settings or with the settings it was saved with. New saves are linked to the original, and each cutter's detail view lists the other cutters made from the same image.
   - Files live in a plain directory (`LIBRARY_DIR`), backed by a Google Cloud Storage bucket on Cloud Run (see [Persistent Library Storage](#5-persistent-library-storage-cloud-storage-bucket)).
+- **Print Plate (batch printing):**
+  - Select several cutters from the library (with a quantity for each) and print them in one go.
+  - Footprints are packed onto the chosen printer's bed with MaxRects (5 mm gaps, 90° rotation when it helps) so nothing overlaps; a top-view layout preview is shown.
+  - Downloads: sliced G-code, a PrusaSlicer project (`.3mf`, one named object per cutter) and a combined STL; the plate can also be viewed on the 3D bed.
 - **Google OAuth 2.0 Allowlist Protection:**
   - Secure access restricted to you and your friends' Google accounts.
   - Graceful dev mode fallback when unconfigured.
@@ -175,6 +179,7 @@ prusa-cookiecutter-app/
 │   ├── geometry.py          # OpenCV image processing & 3-tier Shapely/Trimesh extrusion
 │   ├── slicer.py            # PrusaSlicer CLI execution & G-code metadata parser
 │   ├── library.py           # Persistent cutter library (files + metadata in LIBRARY_DIR)
+│   ├── plate.py             # Print plate: bed packing of several cutters, STL/3MF export
 │   ├── main.py              # FastAPI endpoints & background cleanup
 │   └── templates/
 │       └── index.html       # Single-page UI with Three.js 3D viewport & Prusa bed
