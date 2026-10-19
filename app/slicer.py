@@ -129,6 +129,7 @@ def slice_stl_to_gcode(
         return {
             "success": False,
             "error": msg,
+            "error_key": "slicer_not_found",
             "gcode_generated": False,
         }
 
@@ -170,6 +171,7 @@ def slice_stl_to_gcode(
             return {
                 "success": False,
                 "error": err_msg,
+                "error_key": "slicer_failed",
                 "gcode_generated": False,
             }
 
@@ -179,6 +181,7 @@ def slice_stl_to_gcode(
             return {
                 "success": False,
                 "error": err_msg,
+                "error_key": "slicer_no_output",
                 "gcode_generated": False,
             }
 
@@ -210,6 +213,8 @@ def slice_stl_to_gcode(
         return {
             "success": False,
             "error": f"Slicing timed out after {timeout_seconds} seconds.",
+            "error_key": "slicer_timeout",
+            "timeout_seconds": timeout_seconds,
             "gcode_generated": False,
         }
     except Exception as e:

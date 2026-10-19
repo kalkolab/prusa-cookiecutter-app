@@ -15,6 +15,8 @@ from shapely.ops import unary_union
 import shapely.affinity
 import trimesh
 
+from app.i18n import UserError
+
 logger = logging.getLogger("geometry")
 
 
@@ -32,7 +34,7 @@ def preprocess_image(
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
     if img is None:
-        raise ValueError("Could not decode image file. Please provide a valid PNG, JPG, or WebP.")
+        raise UserError("image_decode_failed")
 
     # Handle transparent PNGs by compositing onto white background
     if len(img.shape) == 3 and img.shape[2] == 4:
@@ -128,10 +130,7 @@ def image_to_cookie_cutter(
                 raw_polys.append(p)
 
     if not raw_polys:
-        raise ValueError(
-            "No valid shapes detected in image. "
-            "Try toggling 'Invert Colors' or using an image with higher contrast."
-        )
+        raise UserError("no_shapes")
 
     # Sort polygons largest to smallest; largest is outer cookie silhouette
     raw_polys.sort(key=lambda p: p.area, reverse=True)
@@ -141,7 +140,7 @@ def image_to_cookie_cutter(
     minx, miny, maxx, maxy = outer_silhouette.bounds
     span = max(maxx - minx, maxy - miny)
     if span <= 0:
-        raise ValueError("Invalid contour bounding box (zero size).")
+        raise UserError("zero_bbox")
     scale_factor = target_size_mm / span
     cx, cy = (minx + maxx) / 2.0, (miny + maxy) / 2.0
 
@@ -179,10 +178,7 @@ def image_to_cookie_cutter(
             meshes.extend(extrude_shapely_geom(inner_rings, height=stamp_height))
 
     if not meshes:
-        raise ValueError(
-            "Failed to construct 3D mesh. The image contours could not be extruded. "
-            "Try a different image or adjust settings."
-        )
+        raise UserError("mesh_failed")
 
     combined_mesh = trimesh.util.concatenate(meshes)
 

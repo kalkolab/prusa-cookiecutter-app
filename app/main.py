@@ -14,6 +14,7 @@ from typing import List, Optional
 
 from fastapi import (
     FastAPI,
+    Request,
     File,
     Form,
     UploadFile,
@@ -22,12 +23,14 @@ from fastapi import (
     BackgroundTasks,
 )
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.geometry import image_to_cookie_cutter
 from app.slicer import slice_stl_to_gcode, find_prusa_slicer_binary, PRINTER_SPECS
 from app.auth import verify_user_token, is_auth_enabled, GOOGLE_CLIENT_ID
 from app import library, plate
+from app.i18n import UserError, translate, request_language
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app")
@@ -40,6 +43,17 @@ JOBS_DIR.mkdir(parents=True, exist_ok=True)
 app = FastAPI(title="Prusa Cookie Cutter & Stamp Studio")
 
 TEMPLATES_DIR = BASE_DIR / "templates"
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+
+
+@app.exception_handler(UserError)
+async def user_error_handler(request: Request, exc: UserError):
+    """Renders user-facing errors in the language chosen in the UI (lang cookie)."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": translate(exc.key, request_language(request), **exc.params), "code": exc.key},
+        headers=exc.headers,
+    )
 
 
 def cleanup_old_jobs(max_age_seconds: int = 3600):
@@ -56,11 +70,15 @@ def cleanup_old_jobs(max_age_seconds: int = 3600):
 
 
 @app.get("/", response_class=HTMLResponse)
-async def serve_index():
+async def serve_index(request: Request):
     index_file = TEMPLATES_DIR / "index.html"
     if not index_file.exists():
         raise HTTPException(status_code=404, detail="Index template not found.")
-    return HTMLResponse(content=index_file.read_text(encoding="utf-8"))
+    # Set <html lang> from the saved choice so the page starts in the right language
+    html = index_file.read_text(encoding="utf-8").replace(
+        '<html lang="en">', f'<html lang="{request_language(request)}">', 1
+    )
+    return HTMLResponse(content=html)
 
 
 @app.get("/api/health")
@@ -101,10 +119,7 @@ BED_MARGIN_MM = 5.0
 def validate_param(name: str, value: float) -> None:
     lo, hi = PARAM_LIMITS[name]
     if not (lo <= value <= hi):
-        raise HTTPException(
-            status_code=400,
-            detail=f"{name} must be between {lo:g} and {hi:g} (got {value:g}).",
-        )
+        raise UserError("param_range", name=name, lo=f"{lo:g}", hi=f"{hi:g}", value=f"{value:g}")
 
 
 @app.post("/api/generate")
@@ -136,11 +151,11 @@ def generate_model(
     validate_param("simplify_tol", simplify_tol)
 
     if not image.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Uploaded file is not an image.")
+        raise UserError("not_image")
 
     content = image.file.read()
     if len(content) > 15 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="Image size exceeds 15MB limit.")
+        raise UserError("image_too_large")
 
     try:
         clean_printer = printer_model.lower().strip()
@@ -163,10 +178,10 @@ def generate_model(
         max_x = spec["bed_x"] - 2 * BED_MARGIN_MM
         max_y = spec["bed_y"] - 2 * BED_MARGIN_MM
         if stats["print_width_mm"] > max_x or stats["print_length_mm"] > max_y:
-            raise ValueError(
-                f"Model footprint {stats['print_width_mm']} × {stats['print_length_mm']} mm "
-                f"does not fit the {spec['name']} bed (max {max_x:g} × {max_y:g} mm). "
-                "Reduce the target size or handle rim width."
+            raise UserError(
+                "footprint_too_big",
+                width=stats["print_width_mm"], length=stats["print_length_mm"],
+                printer=spec["name"], max_x=f"{max_x:g}", max_y=f"{max_y:g}",
             )
 
         job_id = str(uuid.uuid4())
@@ -253,11 +268,13 @@ def generate_model(
             }
         )
 
+    except UserError:
+        raise
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.exception("Failed to generate model")
-        raise HTTPException(status_code=500, detail=f"Internal processing error: {str(e)}")
+        raise UserError("internal_error", status_code=500, error=str(e))
 
 
 @app.get("/api/download/{job_id}/{filename}")
@@ -272,10 +289,10 @@ async def download_file(job_id: str, filename: str):
     target_file = (JOBS_DIR / safe_job_id / safe_filename).resolve()
 
     if not str(target_file).startswith(str(JOBS_DIR.resolve())):
-        raise HTTPException(status_code=400, detail="Invalid path access.")
+        raise UserError("invalid_path")
 
     if not target_file.exists():
-        raise HTTPException(status_code=404, detail="Requested file not found or expired.")
+        raise UserError("file_expired", status_code=404)
 
     media_type = {".stl": "model/stl", ".3mf": "model/3mf"}.get(Path(safe_filename).suffix.lower(), "text/x.gcode")
     return FileResponse(
@@ -311,7 +328,7 @@ def library_item_response(meta: dict) -> dict:
 def get_library_item_or_404(item_id: str) -> dict:
     meta = library.get_item(item_id)
     if not meta:
-        raise HTTPException(status_code=404, detail="Library item not found.")
+        raise UserError("library_item_not_found", status_code=404)
     return meta
 
 
@@ -321,16 +338,14 @@ def save_to_library(req: SaveToLibraryRequest, user_info: dict = Depends(verify_
     try:
         job_id = str(uuid.UUID(req.job_id))
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid job id.")
+        raise UserError("invalid_job_id")
     try:
         meta = library.save_from_job(JOBS_DIR / job_id, req.name, user_info.get("email"), req.source_id)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except UserError:
+        raise
     except Exception as e:
         logger.exception("Failed to save to library")
-        raise HTTPException(status_code=500, detail=f"Could not save to library: {e}")
+        raise UserError("save_failed", status_code=500, error=str(e))
     return library_item_response(meta)
 
 
@@ -353,7 +368,7 @@ def get_library_file(item_id: str, filename: str, user_info: dict = Depends(veri
     meta = get_library_item_or_404(item_id)
     path = library.item_file_path(item_id, filename)
     if not path:
-        raise HTTPException(status_code=404, detail="File not found.")
+        raise UserError("file_not_found", status_code=404)
 
     suffix = path.suffix.lower()
     if suffix in (".stl", ".gcode"):
@@ -369,7 +384,7 @@ def get_library_file(item_id: str, filename: str, user_info: dict = Depends(veri
 def delete_library_item(item_id: str, user_info: dict = Depends(verify_user_token)):
     meta = get_library_item_or_404(item_id)
     if not user_info.get("auth_disabled") and meta.get("owner") != user_info.get("email"):
-        raise HTTPException(status_code=403, detail="Only the person who saved this cutter can delete it.")
+        raise UserError("delete_forbidden", status_code=403)
     library.delete_item(item_id)
     return {"deleted": item_id}
 
@@ -398,17 +413,17 @@ def build_print_plate(req: PlateRequest, background_tasks: BackgroundTasks, user
 
     printer = req.printer_model.lower().strip()
     if printer not in PRINTER_SPECS:
-        raise HTTPException(status_code=400, detail=f"Unknown printer model: {req.printer_model}")
+        raise UserError("unknown_printer", printer=req.printer_model)
     spec = PRINTER_SPECS[printer]
 
     parts = []
     for item in req.items:
         if not 1 <= item.quantity <= plate.MAX_COPIES:
-            raise HTTPException(status_code=400, detail=f"Quantity must be between 1 and {plate.MAX_COPIES}.")
+            raise UserError("quantity_range", max=plate.MAX_COPIES)
         meta = get_library_item_or_404(item.id)
         stl_path = library.item_file_path(item.id, meta["files"]["stl"])
         if not stl_path:
-            raise HTTPException(status_code=404, detail=f"STL for '{meta['name']}' is missing.")
+            raise UserError("plate_stl_missing", status_code=404, name=meta["name"])
         parts.append({"name": meta["name"], "stl_path": stl_path, "quantity": item.quantity})
 
     job_id = str(uuid.uuid4())
@@ -416,13 +431,13 @@ def build_print_plate(req: PlateRequest, background_tasks: BackgroundTasks, user
     job_dir.mkdir(parents=True, exist_ok=True)
     try:
         result = plate.build_plate(parts, spec["bed_x"], spec["bed_y"], BED_MARGIN_MM, job_dir)
-    except ValueError as e:
+    except UserError:
         shutil.rmtree(job_dir, ignore_errors=True)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise
     except Exception as e:
         shutil.rmtree(job_dir, ignore_errors=True)
         logger.exception("Failed to build print plate")
-        raise HTTPException(status_code=500, detail=f"Could not build the print plate: {e}")
+        raise UserError("plate_failed", status_code=500, error=str(e))
 
     gcode_filename = f"plate_{printer}.gcode"
     slicing_result = slice_stl_to_gcode(

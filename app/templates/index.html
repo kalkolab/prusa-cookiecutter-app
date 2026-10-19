@@ -11,6 +11,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+  <!-- UI translations (EN/FR/RU); must load before the page script -->
+  <script src="/static/i18n.js?v=1"></script>
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
@@ -32,20 +34,25 @@
         <i data-lucide="cookie" class="w-5 h-5"></i>
       </div>
       <div>
-        <h1 class="text-sm sm:text-base lg:text-lg font-bold tracking-tight">Cookie Cutter Studio</h1>
-        <p class="text-[10px] sm:text-xs text-slate-400 hidden sm:block">Headless Slicing for Prusa MK4S, MK4, MK3S+, MINI+</p>
+        <h1 class="text-sm sm:text-base lg:text-lg font-bold tracking-tight" data-i18n="app.title">Cookie Cutter Studio</h1>
+        <p class="text-[10px] sm:text-xs text-slate-400 hidden sm:block" data-i18n="app.subtitle">Headless Slicing for Prusa MK4S, MK4, MK3S+, MINI+</p>
       </div>
     </div>
 
     <!-- Auth / Profile Section -->
     <div class="flex items-center space-x-2 sm:space-x-4">
+      <select id="langSelect" onchange="i18n.setLanguage(this.value)" data-i18n-aria-label="lang.label" aria-label="Language" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg px-1.5 py-1.5 text-xs font-semibold text-slate-200 focus:border-prusa focus:outline-none cursor-pointer">
+        <option value="en">EN</option>
+        <option value="fr">FR</option>
+        <option value="ru">RU</option>
+      </select>
       <button onclick="openLibrary()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center space-x-1.5 transition">
         <i data-lucide="library" class="w-4 h-4 text-prusa-orange"></i>
-        <span>Library</span>
+        <span data-i18n="nav.library">Library</span>
       </button>
       <button onclick="openLibrary(true)" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center space-x-1.5 transition">
         <i data-lucide="layout-grid" class="w-4 h-4 text-prusa-orange"></i>
-        <span class="hidden sm:inline">Print Plate</span>
+        <span class="hidden sm:inline" data-i18n="nav.plate">Print Plate</span>
       </button>
       <div id="authStatusBadge" class="hidden text-[10px] sm:text-xs px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700"></div>
       <div id="g_id_signin_container"></div>
@@ -53,7 +60,7 @@
         <img id="userAvatar" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-prusa flex-shrink-0" src="" alt="avatar">
         <div class="text-left text-xs">
           <div id="userName" class="font-semibold text-slate-200 max-w-[100px] sm:max-w-[140px] truncate"></div>
-          <button onclick="signOut()" class="text-[11px] text-slate-400 hover:text-prusa-orange transition">Sign out</button>
+          <button onclick="signOut()" class="text-[11px] text-slate-400 hover:text-prusa-orange transition" data-i18n="auth.signOut">Sign out</button>
         </div>
       </div>
     </div>
@@ -63,11 +70,11 @@
   <div class="lg:hidden flex border-b border-slate-800 bg-slate-900 sticky top-0 z-20 flex-shrink-0">
     <button id="mobileTabControls" onclick="switchMobileView('controls')" class="flex-1 py-2.5 text-xs font-bold border-b-2 border-prusa-orange text-white flex items-center justify-center space-x-1.5 transition">
       <i data-lucide="sliders" class="w-4 h-4 text-prusa-orange"></i>
-      <span>1. Design & Printer</span>
+      <span data-i18n="tab.design">1. Design & Printer</span>
     </button>
     <button id="mobileTab3D" onclick="switchMobileView('3d')" class="flex-1 py-2.5 text-xs font-bold border-b-2 border-transparent text-slate-400 flex items-center justify-center space-x-1.5 transition">
       <i data-lucide="box" class="w-4 h-4"></i>
-      <span>2. 3D Bed View</span>
+      <span data-i18n="tab.view3d">2. 3D Bed View</span>
       <span id="mobileBadge" class="hidden w-2 h-2 rounded-full bg-emerald-400"></span>
     </button>
   </div>
@@ -76,9 +83,9 @@
   <div id="errorBanner" class="hidden bg-red-950/90 border-b border-red-800 px-4 py-2 text-xs text-red-200 flex items-center justify-between z-30">
     <div class="flex items-center space-x-2">
       <i data-lucide="alert-circle" class="w-4 h-4 text-red-400 flex-shrink-0"></i>
-      <span id="errorBannerText">An error occurred</span>
+      <span id="errorBannerText"></span>
     </div>
-    <button onclick="document.getElementById('errorBanner').classList.add('hidden')" class="text-red-400 hover:text-white p-1">
+    <button onclick="document.getElementById('errorBanner').classList.add('hidden')" data-i18n-aria-label="common.dismiss" aria-label="Dismiss" class="text-red-400 hover:text-white p-1">
       <i data-lucide="x" class="w-4 h-4"></i>
     </button>
   </div>
@@ -91,64 +98,64 @@
       
       <!-- Upload Dropzone -->
       <section>
-        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">1. Upload Image</label>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5" data-i18n="upload.title">1. Upload Image</label>
         <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-prusa-orange rounded-xl p-4 text-center cursor-pointer transition bg-slate-800/40 relative active:scale-[0.99]">
           <input type="file" id="fileInput" accept="image/*" class="hidden">
           <div id="uploadPlaceholder" class="space-y-1.5 py-3 sm:py-4">
             <i data-lucide="upload-cloud" class="w-8 h-8 mx-auto text-slate-400"></i>
-            <p class="text-sm font-medium text-slate-300">Tap to upload / take photo</p>
-            <p class="text-[11px] text-slate-500">PNG, JPG, Silhouette, or Clipart</p>
+            <p class="text-sm font-medium text-slate-300" data-i18n="upload.tap">Tap to upload / take photo</p>
+            <p class="text-[11px] text-slate-500" data-i18n="upload.types">PNG, JPG, Silhouette, or Clipart</p>
           </div>
           <div id="uploadPreview" class="hidden space-y-2">
-            <img id="imgPreview" class="max-h-28 sm:max-h-32 mx-auto rounded shadow border border-slate-700 object-contain" src="" alt="preview">
-            <button id="removeImageBtn" class="text-xs text-red-400 hover:underline py-1">Change image</button>
+            <img id="imgPreview" class="max-h-28 sm:max-h-32 mx-auto rounded shadow border border-slate-700 object-contain" src="" alt="preview" data-i18n-alt="upload.previewAlt">
+            <button id="removeImageBtn" class="text-xs text-red-400 hover:underline py-1" data-i18n="upload.change">Change image</button>
           </div>
         </div>
         <div id="sourceChip" class="hidden mt-2 flex items-center justify-between bg-slate-800/80 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[11px] text-slate-300">
           <span class="flex items-center space-x-1.5 min-w-0">
             <i data-lucide="library" class="w-3.5 h-3.5 text-prusa-orange flex-shrink-0"></i>
-            <span class="truncate">From library: <span id="sourceChipName" class="font-semibold text-slate-100"></span></span>
+            <span class="truncate"><span data-i18n="upload.fromLibrary">From library:</span> <span id="sourceChipName" class="font-semibold text-slate-100"></span></span>
           </span>
         </div>
         <button type="button" onclick="openLibrary()" class="mt-1.5 text-[11px] text-slate-400 hover:text-prusa-orange flex items-center space-x-1 py-1 transition">
           <i data-lucide="images" class="w-3.5 h-3.5"></i>
-          <span>…or reuse an image from the library</span>
+          <span data-i18n="upload.reuse">…or reuse an image from the library</span>
         </button>
         <div class="mt-2 flex items-center justify-between text-xs text-slate-400">
           <label class="flex items-center space-x-2 cursor-pointer py-1">
             <input type="checkbox" id="invertInput" class="rounded bg-slate-800 border-slate-700 text-prusa-orange w-4 h-4">
-            <span>Invert Colors (Dark/Light)</span>
+            <span data-i18n="upload.invert">Invert Colors (Dark/Light)</span>
           </label>
         </div>
       </section>
 
       <!-- Mode Selector -->
       <section>
-        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">2. Cutter Mode</label>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5" data-i18n="mode.title">2. Cutter Mode</label>
         <div class="grid grid-cols-2 gap-2">
           <button id="modeCutterBtn" type="button" onclick="setMode('cutter')" class="py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-prusa-orange border-prusa text-white shadow">
             <i data-lucide="scissors" class="w-4 h-4"></i>
-            <span>Cutter Only</span>
+            <span data-i18n="mode.cutter">Cutter Only</span>
           </button>
           <button id="modeStampBtn" type="button" onclick="setMode('stamp')" class="py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600">
             <i data-lucide="stamp" class="w-4 h-4"></i>
-            <span>Cutter + Stamp</span>
+            <span data-i18n="mode.stamp">Cutter + Stamp</span>
           </button>
         </div>
-        <p id="modeDescription" class="mt-1 text-[11px] text-slate-400">
+        <p id="modeDescription" class="mt-1 text-[11px] text-slate-400" data-i18n="mode.cutterDesc">
           Generates a 3-tier perimeter blade that cuts completely through dough.
         </p>
       </section>
 
       <!-- Target Printer Selector -->
       <section>
-        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">3. Target Prusa Printer (G-code)</label>
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5" data-i18n="printer.title">3. Target Prusa Printer (G-code)</label>
         <div class="relative">
           <select id="printerSelect" onchange="onPrinterChange()" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2.5 text-xs text-slate-200 focus:border-prusa focus:outline-none appearance-none cursor-pointer">
-            <option value="mk4s" selected>Prusa MK4S (0.4mm nozzle · 250×210 mm)</option>
-            <option value="mk4">Prusa MK4 (0.4mm nozzle · 250×210 mm)</option>
-            <option value="mk3s">Prusa MK3S+ (0.4mm nozzle · 250×210 mm)</option>
-            <option value="mini">Prusa MINI+ (0.4mm nozzle · 180×180 mm)</option>
+            <option value="mk4s" selected data-i18n="printer.option" data-i18n-params='{"name":"Prusa MK4S","bed":"250×210"}'>Prusa MK4S (0.4 mm nozzle · 250×210 mm)</option>
+            <option value="mk4" data-i18n="printer.option" data-i18n-params='{"name":"Prusa MK4","bed":"250×210"}'>Prusa MK4 (0.4 mm nozzle · 250×210 mm)</option>
+            <option value="mk3s" data-i18n="printer.option" data-i18n-params='{"name":"Prusa MK3S+","bed":"250×210"}'>Prusa MK3S+ (0.4 mm nozzle · 250×210 mm)</option>
+            <option value="mini" data-i18n="printer.option" data-i18n-params='{"name":"Prusa MINI+","bed":"180×180"}'>Prusa MINI+ (0.4 mm nozzle · 180×180 mm)</option>
           </select>
           <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none"></i>
         </div>
@@ -156,22 +163,22 @@
 
       <!-- Dimensions & Parameters -->
       <section class="space-y-3.5 bg-slate-800/40 p-3.5 rounded-xl border border-slate-800">
-        <label class="block text-xs font-semibold uppercase text-slate-400">4. Sizing & Geometry</label>
+        <label class="block text-xs font-semibold uppercase text-slate-400" data-i18n="size.title">4. Sizing & Geometry</label>
 
         <!-- Target Cut Size -->
         <div>
           <div class="flex justify-between text-xs mb-1">
-            <span class="text-slate-300">Target Inner Cut Size</span>
+            <span class="text-slate-300" data-i18n="size.target">Target Inner Cut Size</span>
             <span id="targetSizeVal" class="font-bold text-prusa-orange font-mono">80 mm</span>
           </div>
           <input type="range" id="targetSizeInput" min="30" max="180" step="5" value="80" class="w-full h-2 bg-slate-700 rounded-lg cursor-pointer">
-          <p class="text-[10px] text-slate-500 mt-0.5">The longest inner dimension of the cut dough.</p>
+          <p class="text-[10px] text-slate-500 mt-0.5" data-i18n="size.targetHint">The longest inner dimension of the cut dough.</p>
         </div>
 
         <!-- Blade Height -->
         <div>
           <div class="flex justify-between text-xs mb-1">
-            <span class="text-slate-300">Blade Height</span>
+            <span class="text-slate-300" data-i18n="size.blade">Blade Height</span>
             <span id="bladeHeightVal" class="font-bold text-prusa-orange font-mono">12 mm</span>
           </div>
           <input type="range" id="bladeHeightInput" min="8" max="25" step="1" value="12" class="w-full h-2 bg-slate-700 rounded-lg cursor-pointer">
@@ -180,7 +187,7 @@
         <!-- Handle Rim Width -->
         <div>
           <div class="flex justify-between text-xs mb-1">
-            <span class="text-slate-300">Handle Rim Width</span>
+            <span class="text-slate-300" data-i18n="size.rim">Handle Rim Width</span>
             <span id="handleWidthVal" class="font-bold text-prusa-orange font-mono">4.0 mm</span>
           </div>
           <input type="range" id="handleWidthInput" min="2" max="6" step="0.5" value="4.0" class="w-full h-2 bg-slate-700 rounded-lg cursor-pointer">
@@ -189,7 +196,7 @@
         <!-- Simplification Tolerance -->
         <div>
           <div class="flex justify-between text-xs mb-1">
-            <span class="text-slate-300">Mesh Smoothing</span>
+            <span class="text-slate-300" data-i18n="size.smoothing">Mesh Smoothing</span>
             <span id="simplifyVal" class="font-bold text-slate-400 font-mono">0.12 mm</span>
           </div>
           <input type="range" id="simplifyInput" min="0.05" max="0.30" step="0.02" value="0.12" class="w-full h-2 bg-slate-700 rounded-lg cursor-pointer">
@@ -200,30 +207,30 @@
       <section class="pt-1">
         <button id="generateBtn" type="button" onclick="generateModel()" class="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-prusa-orange hover-bg-prusa transition text-white shadow-lg flex items-center justify-center space-x-2 active:scale-[0.98]">
           <i data-lucide="cpu" class="w-5 h-5"></i>
-          <span>Generate STL & Slice G-code</span>
+          <span data-i18n="generate.button">Generate STL & Slice G-code</span>
         </button>
       </section>
 
       <!-- 2D Mask Preview -->
       <section id="maskSection" class="hidden border-t border-slate-800 pt-3">
-        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5">Detected 2D Mask</label>
-        <img id="maskImg" class="w-full max-h-32 rounded-lg border border-slate-700 object-contain bg-black shadow" src="" alt="mask">
+        <label class="block text-xs font-semibold uppercase text-slate-400 mb-1.5" data-i18n="mask.title">Detected 2D Mask</label>
+        <img id="maskImg" class="w-full max-h-32 rounded-lg border border-slate-700 object-contain bg-black shadow" src="" alt="mask" data-i18n-alt="mask.alt">
       </section>
 
       <!-- Generation Results & Downloads -->
       <section id="resultsSection" class="hidden space-y-3 pt-2">
         <div class="bg-slate-800/80 rounded-xl p-3 border border-slate-700 space-y-2 text-xs">
           <div class="font-semibold text-slate-200 flex items-center justify-between">
-            <span>Model Specifications</span>
-            <span id="watertightBadge" class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">Watertight</span>
+            <span data-i18n="results.title">Model Specifications</span>
+            <span id="watertightBadge" class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800" data-i18n="results.watertight">Watertight</span>
           </div>
           <div class="grid grid-cols-2 gap-2 text-slate-400">
-            <div>Inner Cut: <span id="resInnerDims" class="text-slate-200 font-mono">--</span></div>
-            <div>Print Size: <span id="resPrintDims" class="text-slate-200 font-mono">--</span></div>
-            <div>Printer: <span id="resPrinter" class="text-prusa-orange font-semibold font-mono">MK4S</span></div>
-            <div>Print Time: <span id="resPrintTime" class="text-slate-200 font-mono">--</span></div>
-            <div>Filament: <span id="resFilament" class="text-slate-200 font-mono">--</span></div>
-            <div>Triangles: <span id="resTriangles" class="text-slate-200 font-mono">--</span></div>
+            <div><span data-i18n="results.innerCut">Inner Cut:</span> <span id="resInnerDims" class="text-slate-200 font-mono">--</span></div>
+            <div><span data-i18n="results.printSize">Print Size:</span> <span id="resPrintDims" class="text-slate-200 font-mono">--</span></div>
+            <div><span data-i18n="results.printer">Printer:</span> <span id="resPrinter" class="text-prusa-orange font-semibold font-mono">MK4S</span></div>
+            <div><span data-i18n="results.printTime">Print Time:</span> <span id="resPrintTime" class="text-slate-200 font-mono">--</span></div>
+            <div><span data-i18n="results.filament">Filament:</span> <span id="resFilament" class="text-slate-200 font-mono">--</span></div>
+            <div><span data-i18n="results.triangles">Triangles:</span> <span id="resTriangles" class="text-slate-200 font-mono">--</span></div>
           </div>
         </div>
 
@@ -236,25 +243,25 @@
         <div class="space-y-2">
           <a id="downloadStlBtn" href="#" download="cookie_cutter.stl" class="w-full py-3 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold flex items-center justify-center space-x-2 transition text-white shadow">
             <i data-lucide="box" class="w-4 h-4"></i>
-            <span>Download 3D Model (.STL)</span>
+            <span data-i18n="results.downloadStl">Download 3D Model (.STL)</span>
           </a>
           <a id="downloadGcodeBtn" href="#" download="cookie_cutter_mk4s.gcode" class="w-full py-3 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold flex items-center justify-center space-x-2 transition text-white shadow">
             <i data-lucide="file-code" class="w-4 h-4"></i>
-            <span id="downloadGcodeText">Download Prusa MK4S G-code (.GCODE)</span>
+            <span id="downloadGcodeText" data-i18n="results.downloadGcode" data-i18n-params='{"printer":"MK4S"}'>Download Prusa MK4S G-code (.GCODE)</span>
           </a>
         </div>
 
         <!-- Save to Library -->
         <div class="bg-slate-800/60 rounded-xl p-3 border border-slate-700 space-y-2">
-          <label for="saveNameInput" class="block text-xs font-semibold uppercase text-slate-400">Save to Library</label>
+          <label for="saveNameInput" class="block text-xs font-semibold uppercase text-slate-400" data-i18n="save.title">Save to Library</label>
           <div class="flex space-x-2">
-            <input id="saveNameInput" type="text" maxlength="80" placeholder="e.g. Christmas tree" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-prusa focus:outline-none">
+            <input id="saveNameInput" type="text" maxlength="80" placeholder="e.g. Christmas tree" data-i18n-placeholder="save.placeholder" class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-prusa focus:outline-none">
             <button id="saveToLibraryBtn" type="button" onclick="saveToLibrary()" class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold text-white flex items-center space-x-1.5 transition flex-shrink-0">
               <i data-lucide="bookmark-plus" class="w-4 h-4"></i>
-              <span id="saveToLibraryText">Save</span>
+              <span id="saveToLibraryText" data-i18n="save.button">Save</span>
             </button>
           </div>
-          <p class="text-[10px] text-slate-500">Stores the STL, G-code, original image and all parameters.</p>
+          <p class="text-[10px] text-slate-500" data-i18n="save.hint">Stores the STL, G-code, original image and all parameters.</p>
         </div>
       </section>
     </aside>
@@ -273,7 +280,7 @@
             <span id="hudBedTitle">Prusa MK4S Bed (250 × 210 mm)</span>
           </div>
           <div id="hudDimensions" class="mt-1 text-[11px] sm:text-xs font-mono text-emerald-400 hidden">
-            X: <span id="hudX">0</span> mm | Y: <span id="hudY">0</span> mm | Z: <span id="hudZ">0</span> mm
+            X: <span id="hudX">0</span> <span data-i18n="unit.mm">mm</span> | Y: <span id="hudY">0</span> <span data-i18n="unit.mm">mm</span> | Z: <span id="hudZ">0</span> <span data-i18n="unit.mm">mm</span>
           </div>
         </div>
       </div>
@@ -281,22 +288,22 @@
       <!-- Camera View Presets -->
       <div class="absolute top-3 right-3 flex space-x-1.5 z-10">
         <button onclick="resetCamera('perspective')" class="px-2.5 py-1.5 rounded-lg bg-slate-900/85 hover:bg-slate-800 backdrop-blur border border-slate-800 text-[11px] sm:text-xs text-slate-300 font-medium transition shadow">
-          3D
+          <span data-i18n="view.3d">3D</span>
         </button>
         <button onclick="resetCamera('top')" class="px-2.5 py-1.5 rounded-lg bg-slate-900/85 hover:bg-slate-800 backdrop-blur border border-slate-800 text-[11px] sm:text-xs text-slate-300 font-medium transition shadow">
-          Top
+          <span data-i18n="view.top">Top</span>
         </button>
       </div>
 
       <!-- Floating Touch Instruction Banner on Mobile -->
       <div class="lg:hidden absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-none bg-slate-900/80 backdrop-blur border border-slate-800 px-3 py-1 rounded-full text-[10px] text-slate-400">
-        1-Finger: Rotate | 2-Finger: Pinch Zoom
+        <span data-i18n="view.touchHint">1 finger: rotate | 2 fingers: pinch to zoom</span>
       </div>
 
       <!-- Loading / Processing Spinner Overlay -->
       <div id="loadingOverlay" class="hidden absolute inset-0 bg-slate-950/75 backdrop-blur-sm flex flex-col items-center justify-center z-50">
         <div class="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-prusa"></div>
-        <p id="loadingStatusText" class="mt-3 text-xs sm:text-sm font-semibold text-slate-200 text-center px-4">Processing Geometry & Slicing G-code...</p>
+        <p id="loadingStatusText" class="mt-3 text-xs sm:text-sm font-semibold text-slate-200 text-center px-4" data-i18n="loading.default">Processing geometry & slicing G-code…</p>
       </div>
     </div>
   </main>
@@ -306,13 +313,13 @@
     <div class="bg-slate-900 border border-slate-800 sm:rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col max-h-full sm:max-h-[90vh]">
       <div class="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-slate-800 flex-shrink-0">
         <div class="flex items-center space-x-2 min-w-0">
-          <button id="libraryBackBtn" onclick="showLibraryList()" class="hidden p-1 -ml-1 text-slate-400 hover:text-white" aria-label="Back to library">
+          <button id="libraryBackBtn" onclick="showLibraryList()" class="hidden p-1 -ml-1 text-slate-400 hover:text-white" aria-label="Back to library" data-i18n-aria-label="library.back">
             <i data-lucide="arrow-left" class="w-5 h-5"></i>
           </button>
           <i data-lucide="library" class="w-5 h-5 text-prusa-orange flex-shrink-0"></i>
           <h2 id="libraryTitle" class="font-bold text-sm sm:text-base truncate">Cutter Library</h2>
         </div>
-        <button onclick="closeLibrary()" class="p-1 text-slate-400 hover:text-white" aria-label="Close library">
+        <button onclick="closeLibrary()" class="p-1 text-slate-400 hover:text-white" aria-label="Close library" data-i18n-aria-label="library.close">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
@@ -320,16 +327,16 @@
       <!-- List View -->
       <div id="libraryListView" class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
         <div class="flex flex-col sm:flex-row gap-2">
-          <input id="librarySearch" type="search" placeholder="Search by name…" oninput="renderLibraryList()" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-prusa focus:outline-none">
+          <input id="librarySearch" type="search" placeholder="Search by name…" data-i18n-placeholder="library.search" oninput="renderLibraryList()" class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-prusa focus:outline-none">
           <select id="libraryFilter" onchange="renderLibraryList()" class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-prusa focus:outline-none">
-            <option value="all">All cutters</option>
-            <option value="mine">Saved by me</option>
-            <option value="outline">Cutter only</option>
-            <option value="stamp">Cutter + Stamp</option>
+            <option value="all" data-i18n="library.filterAll">All cutters</option>
+            <option value="mine" data-i18n="library.filterMine">Saved by me</option>
+            <option value="outline" data-i18n="library.filterOutline">Cutter only</option>
+            <option value="stamp" data-i18n="library.filterStamp">Cutter + Stamp</option>
           </select>
           <button id="plateModeBtn" type="button" onclick="setPlateMode(!plateMode)" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 flex items-center justify-center space-x-1.5 transition">
             <i data-lucide="layout-grid" class="w-4 h-4 text-prusa-orange"></i>
-            <span id="plateModeText">Select for print plate</span>
+            <span id="plateModeText" data-i18n="plate.selectMode">Select for print plate</span>
           </button>
         </div>
         <p id="libraryStatus" class="text-xs text-slate-400"></p>
@@ -338,9 +345,9 @@
 
       <!-- Selection bar (print plate mode) -->
       <div id="plateSelectionBar" class="hidden flex-shrink-0 border-t border-slate-800 px-4 sm:px-5 py-3 flex items-center justify-between bg-slate-900">
-        <span id="plateSelectionText" class="text-xs text-slate-300">Tap cutters to add them to the plate</span>
+        <span id="plateSelectionText" class="text-xs text-slate-300" data-i18n="plate.tapToAdd">Tap cutters to add them to the plate</span>
         <button id="plateNextBtn" type="button" onclick="showPlateView()" disabled class="px-4 py-2 rounded-lg bg-prusa-orange hover-bg-prusa text-xs font-semibold text-white flex items-center space-x-1.5 transition disabled:opacity-40">
-          <span>Next</span><i data-lucide="arrow-right" class="w-4 h-4"></i>
+          <span data-i18n="plate.next">Next</span><i data-lucide="arrow-right" class="w-4 h-4"></i>
         </button>
       </div>
 
@@ -348,10 +355,10 @@
       <div id="plateView" class="hidden flex-1 overflow-y-auto p-4 sm:p-5">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="space-y-3">
-            <div class="text-[11px] font-semibold uppercase text-slate-400">Cutters on the plate</div>
+            <div class="text-[11px] font-semibold uppercase text-slate-400" data-i18n="plate.onPlate">Cutters on the plate</div>
             <div id="plateItemList" class="space-y-2"></div>
             <div>
-              <label for="platePrinterSelect" class="block text-[11px] font-semibold uppercase text-slate-400 mb-1">Printer</label>
+              <label for="platePrinterSelect" class="block text-[11px] font-semibold uppercase text-slate-400 mb-1" data-i18n="plate.printer">Printer</label>
               <select id="platePrinterSelect" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-xs text-slate-200 focus:border-prusa focus:outline-none">
                 <option value="mk4s">Prusa MK4S (250×210 mm)</option>
                 <option value="mk4">Prusa MK4 (250×210 mm)</option>
@@ -361,27 +368,27 @@
             </div>
             <button id="plateBuildBtn" type="button" onclick="buildPlate()" class="w-full py-3 px-4 rounded-xl font-bold text-sm bg-prusa-orange hover-bg-prusa transition text-white shadow flex items-center justify-center space-x-2 disabled:opacity-50">
               <i data-lucide="cpu" class="w-5 h-5"></i>
-              <span id="plateBuildText">Arrange &amp; Slice</span>
+              <span id="plateBuildText" data-i18n="plate.build">Arrange &amp; Slice</span>
             </button>
-            <p class="text-[10px] text-slate-500">Cutters are packed by their bounding boxes with 5 mm gaps and may be rotated 90° to fit.</p>
+            <p class="text-[10px] text-slate-500" data-i18n="plate.hint">Cutters are packed by their bounding boxes with 5 mm gaps and may be rotated 90° to fit.</p>
           </div>
           <div id="plateResult" class="hidden space-y-3">
-            <div class="text-[11px] font-semibold uppercase text-slate-400">Bed layout (top view)</div>
-            <svg id="plateSvg" class="w-full rounded-lg border border-slate-700 bg-[#0b1120]" role="img" aria-label="Bed layout"></svg>
+            <div class="text-[11px] font-semibold uppercase text-slate-400" data-i18n="plate.layout">Bed layout (top view)</div>
+            <svg id="plateSvg" class="w-full rounded-lg border border-slate-700 bg-[#0b1120]" role="img" aria-label="Bed layout" data-i18n-aria-label="plate.layout"></svg>
             <div id="plateStats" class="grid grid-cols-2 gap-x-3 gap-y-1 text-xs bg-slate-800/60 border border-slate-700 rounded-xl p-3"></div>
             <div id="plateNotice" class="hidden bg-amber-950/60 border border-amber-800 rounded-lg p-2.5 text-xs text-amber-200"></div>
             <div class="grid grid-cols-2 gap-2">
               <a id="plateGcodeBtn" href="#" class="py-2.5 px-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
-                <i data-lucide="file-code" class="w-4 h-4"></i><span>G-code</span>
+                <i data-lucide="file-code" class="w-4 h-4"></i><span data-i18n="plate.gcode">G-code</span>
               </a>
               <a id="plateProjectBtn" href="#" class="py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
-                <i data-lucide="package" class="w-4 h-4"></i><span>Prusa project (.3mf)</span>
+                <i data-lucide="package" class="w-4 h-4"></i><span data-i18n="plate.project">Prusa project (.3mf)</span>
               </a>
               <a id="plateStlBtn" href="#" class="py-2.5 px-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
-                <i data-lucide="box" class="w-4 h-4"></i><span>Combined STL</span>
+                <i data-lucide="box" class="w-4 h-4"></i><span data-i18n="plate.stl">Combined STL</span>
               </a>
               <button type="button" onclick="viewPlate3D()" class="py-2.5 px-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
-                <i data-lucide="eye" class="w-4 h-4"></i><span>View on 3D bed</span>
+                <i data-lucide="eye" class="w-4 h-4"></i><span data-i18n="plate.view3d">View on 3D bed</span>
               </button>
             </div>
           </div>
@@ -393,48 +400,48 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="grid grid-cols-2 gap-2">
             <figure>
-              <img id="detailOriginal" class="w-full aspect-square object-contain rounded-lg border border-slate-700 bg-white" alt="Original image">
-              <figcaption class="text-[10px] text-slate-500 mt-1 text-center">Original image</figcaption>
+              <img id="detailOriginal" class="w-full aspect-square object-contain rounded-lg border border-slate-700 bg-white" alt="Original image" data-i18n-alt="detail.original">
+              <figcaption class="text-[10px] text-slate-500 mt-1 text-center" data-i18n="detail.original">Original image</figcaption>
             </figure>
             <figure>
-              <img id="detailMask" class="w-full aspect-square object-contain rounded-lg border border-slate-700 bg-black" alt="Detected mask">
-              <figcaption class="text-[10px] text-slate-500 mt-1 text-center">Detected 2D mask</figcaption>
+              <img id="detailMask" class="w-full aspect-square object-contain rounded-lg border border-slate-700 bg-black" alt="Detected mask" data-i18n-alt="mask.alt">
+              <figcaption class="text-[10px] text-slate-500 mt-1 text-center" data-i18n="detail.mask">Detected 2D mask</figcaption>
             </figure>
           </div>
           <div class="space-y-3">
             <div id="detailMeta" class="text-[11px] text-slate-400"></div>
             <dl id="detailParams" class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs bg-slate-800/60 border border-slate-700 rounded-xl p-3"></dl>
             <div class="bg-slate-800/40 border border-slate-700 rounded-xl p-2.5 space-y-2">
-              <div class="text-[11px] font-semibold uppercase text-slate-400">Make a new cutter from this image</div>
+              <div class="text-[11px] font-semibold uppercase text-slate-400" data-i18n="detail.reuseTitle">Make a new cutter from this image</div>
               <div class="grid grid-cols-2 gap-2">
                 <button onclick="reuseLibraryItem(false)" class="py-2.5 px-2 rounded-xl bg-prusa-orange hover-bg-prusa text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
-                  <i data-lucide="image-plus" class="w-4 h-4 flex-shrink-0"></i><span>With current settings</span>
+                  <i data-lucide="image-plus" class="w-4 h-4 flex-shrink-0"></i><span data-i18n="detail.withCurrent">With current settings</span>
                 </button>
                 <button onclick="reuseLibraryItem(true)" class="py-2.5 px-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
-                  <i data-lucide="sliders" class="w-4 h-4 flex-shrink-0"></i><span>With saved settings</span>
+                  <i data-lucide="sliders" class="w-4 h-4 flex-shrink-0"></i><span data-i18n="detail.withSaved">With saved settings</span>
                 </button>
               </div>
             </div>
             <div id="detailRelated" class="hidden space-y-1.5">
-              <div class="text-[11px] font-semibold uppercase text-slate-400">Other cutters from this image</div>
+              <div class="text-[11px] font-semibold uppercase text-slate-400" data-i18n="detail.related">Other cutters from this image</div>
               <div id="detailRelatedList" class="flex flex-wrap gap-1.5"></div>
             </div>
             <div class="grid grid-cols-3 gap-2">
               <button onclick="viewLibraryItem3D()" class="py-2.5 px-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
-                <i data-lucide="box" class="w-4 h-4"></i><span>3D</span>
+                <i data-lucide="box" class="w-4 h-4"></i><span data-i18n="detail.view3d">3D</span>
               </button>
               <button onclick="downloadLibraryFile('stl')" class="py-2.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
-                <i data-lucide="download" class="w-4 h-4"></i><span>STL</span>
+                <i data-lucide="download" class="w-4 h-4"></i><span data-i18n="detail.stl">STL</span>
               </button>
               <button id="detailGcodeBtn" onclick="downloadLibraryFile('gcode')" class="py-2.5 px-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold text-white flex items-center justify-center space-x-1.5 transition">
                 <i data-lucide="download" class="w-4 h-4"></i><span id="detailGcodeText">G-code</span>
               </button>
             </div>
             <button type="button" onclick="addCurrentItemToPlate()" class="w-full py-2 px-3 rounded-xl border border-slate-700 text-slate-200 hover:bg-slate-800 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
-              <i data-lucide="layout-grid" class="w-4 h-4 text-prusa-orange"></i><span>Add to print plate</span>
+              <i data-lucide="layout-grid" class="w-4 h-4 text-prusa-orange"></i><span data-i18n="detail.addToPlate">Add to print plate</span>
             </button>
             <button id="detailDeleteBtn" onclick="deleteLibraryItem()" class="w-full py-2 px-3 rounded-xl border border-red-900 text-red-400 hover:bg-red-950/60 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
-              <i data-lucide="trash-2" class="w-4 h-4"></i><span>Delete from Library</span>
+              <i data-lucide="trash-2" class="w-4 h-4"></i><span data-i18n="detail.delete">Delete from Library</span>
             </button>
           </div>
         </div>
@@ -444,6 +451,28 @@
 
   <script>
     lucide.createIcons();
+    i18n.applyTranslations();
+    document.getElementById('langSelect').value = i18n.lang;
+
+    const mm = (v) => `${v} ${t('unit.mm')}`;
+    const fmtNumber = (n) => Number(n).toLocaleString(i18n.lang);
+
+    // Sets translated text and remembers the key, so applyTranslations() updates it on a language switch
+    function setText(el, key, params) {
+      if (typeof el === 'string') el = document.getElementById(el);
+      el.dataset.i18n = key;
+      if (params) el.dataset.i18nParams = JSON.stringify(params);
+      else delete el.dataset.i18nParams;
+      el.textContent = t(key, params || {});
+    }
+
+    // Sets untranslated text (names, values) and drops any remembered key
+    function setRawText(el, text) {
+      if (typeof el === 'string') el = document.getElementById(el);
+      delete el.dataset.i18n;
+      delete el.dataset.i18nParams;
+      el.textContent = text;
+    }
 
     let selectedFile = null;
     let currentMode = 'cutter';
@@ -452,6 +481,7 @@
     let config = { google_client_id: '', auth_disabled: true };
     let currentMobileView = 'controls';
     let lastJobId = null;
+    let lastGenerateData = null;
     let lastJobSourceId = null;
     let libraryItems = [];
     let currentLibraryItem = null;
@@ -489,10 +519,11 @@
     const slicingNotice = document.getElementById('slicingNotice');
     const slicingNoticeText = document.getElementById('slicingNoticeText');
 
-    targetSizeInput.addEventListener('input', (e) => targetSizeVal.innerText = `${e.target.value} mm`);
-    bladeHeightInput.addEventListener('input', (e) => bladeHeightVal.innerText = `${e.target.value} mm`);
-    handleWidthInput.addEventListener('input', (e) => handleWidthVal.innerText = `${e.target.value} mm`);
-    simplifyInput.addEventListener('input', (e) => simplifyVal.innerText = `${e.target.value} mm`);
+    targetSizeInput.addEventListener('input', (e) => targetSizeVal.innerText = mm(e.target.value));
+    bladeHeightInput.addEventListener('input', (e) => bladeHeightVal.innerText = mm(e.target.value));
+    handleWidthInput.addEventListener('input', (e) => handleWidthVal.innerText = mm(e.target.value));
+    simplifyInput.addEventListener('input', (e) => simplifyVal.innerText = mm(e.target.value));
+    for (const input of [targetSizeInput, bladeHeightInput, handleWidthInput, simplifyInput]) input.dispatchEvent(new Event('input'));
 
     function showError(msg) {
       errorBannerText.innerText = msg;
@@ -549,7 +580,7 @@
     });
 
     function handleFile(file, source = null) {
-      if (!file.type.startsWith('image/')) return showError('Please upload a valid image (PNG, JPG, WebP)');
+      if (!file.type.startsWith('image/')) return showError(t('err.invalidImage'));
       selectedFile = file;
       setSourceLibraryItem(source);
       const reader = new FileReader();
@@ -570,11 +601,11 @@
       if (mode === 'cutter') {
         modeCutterBtn.className = "py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-prusa-orange border-prusa text-white shadow";
         modeStampBtn.className = "py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600";
-        modeDescription.innerText = "Generates a 3-tier perimeter blade that cuts completely through dough.";
+        setText(modeDescription, 'mode.cutterDesc');
       } else {
         modeStampBtn.className = "py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-prusa-orange border-prusa text-white shadow";
         modeCutterBtn.className = "py-2.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center space-x-1.5 transition bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600";
-        modeDescription.innerText = "Generates outer cutter blade + solid backing plate + recessed interior imprint ribs.";
+        setText(modeDescription, 'mode.stampDesc');
       }
     }
 
@@ -627,10 +658,10 @@
       if (Number(targetSizeInput.value) > Number(targetSizeInput.max)) {
         targetSizeInput.value = targetSizeInput.max;
       }
-      targetSizeVal.innerText = `${targetSizeInput.value} mm`;
+      targetSizeVal.innerText = mm(targetSizeInput.value);
       const btnText = document.getElementById('downloadGcodeText');
       if (btnText) {
-        btnText.innerText = `Download Prusa ${selected.toUpperCase()} G-code (.GCODE)`;
+        setText(btnText, 'results.downloadGcode', { printer: selected.toUpperCase() });
       }
     }
 
@@ -645,7 +676,7 @@
 
       const title = document.getElementById('hudBedTitle');
       if (title) {
-        title.innerText = isMini ? "Prusa MINI+ Bed (180 × 180 mm)" : `Prusa ${printer.toUpperCase()} Bed (${width} × ${height} mm)`;
+        setText(title, 'hud.bed', { printer: isMini ? 'Prusa MINI+' : `Prusa ${printer.toUpperCase()}`, width, height });
       }
 
       const gridHelper = new THREE.GridHelper(width, divisions, 0xfa6831, 0x1e293b);
@@ -731,7 +762,7 @@
         }
         const resp = await fetch(url, { headers });
         if (!resp.ok) {
-          throw new Error(`Failed to load STL (HTTP ${resp.status})`);
+          throw new Error(t('err.loadStl', { status: resp.status }));
         }
         const buffer = await resp.arrayBuffer();
 
@@ -768,15 +799,15 @@
         const totalY = size.y.toFixed(1);
         const totalZ = size.z.toFixed(1);
 
-        const labelX = makeTextSprite(`X: ${totalX} mm`, '#38bdf8');
+        const labelX = makeTextSprite(`X: ${mm(totalX)}`, '#38bdf8');
         labelX.position.set(0, box.min.y - 12, 0);
         currentGroup.add(labelX);
 
-        const labelY = makeTextSprite(`Y: ${totalY} mm`, '#4ade80');
+        const labelY = makeTextSprite(`Y: ${mm(totalY)}`, '#4ade80');
         labelY.position.set(box.max.x + 22, 0, 0);
         currentGroup.add(labelY);
 
-        const labelZ = makeTextSprite(`Z: ${totalZ} mm`, '#facc15');
+        const labelZ = makeTextSprite(`Z: ${mm(totalZ)}`, '#facc15');
         labelZ.position.set(box.min.x - 18, box.max.y, size.z / 2);
         currentGroup.add(labelZ);
 
@@ -794,17 +825,38 @@
 
       } catch (err) {
         console.error("Error loading STL:", err);
-        showError("Could not render 3D preview: " + err.message);
+        showError(t('err.render3d', { error: err.message }));
       }
     }
 
+    // Slicer failures carry an error_key for the common cases; anything else shows PrusaSlicer's own text
+    function slicingErrorText(slicing) {
+      if (!slicing) return t('slicer.noGcode');
+      if (slicing.error_key) {
+        return t('slicer.' + slicing.error_key, { seconds: slicing.timeout_seconds, error: slicing.error });
+      }
+      return slicing.error || t('slicer.noGcode');
+    }
+
+    function renderGenerateTexts(data) {
+      const s = data.stats;
+      document.getElementById('resInnerDims').innerText = mm(`${data.dimensions.inner_width_mm} × ${data.dimensions.inner_height_mm}`);
+      document.getElementById('resPrintDims').innerText = mm(`${s.print_width_mm} × ${s.print_length_mm} × ${s.print_height_mm}`);
+      document.getElementById('resPrinter').innerText = data.printer_name || printerSelect.value.toUpperCase();
+      document.getElementById('resTriangles').innerText = fmtNumber(s.triangle_count);
+      document.getElementById('resPrintTime').innerText = data.slicing?.estimated_print_time || t('common.na');
+      document.getElementById('resFilament').innerText = data.slicing?.filament_used_meters ? `${data.slicing.filament_used_meters} ${t('unit.m')}` : t('common.na');
+      setText('downloadGcodeText', 'results.downloadGcode', { printer: data.printer_model.toUpperCase() });
+      if (data.slicing?.error) slicingNoticeText.innerText = t('slicing.note', { error: slicingErrorText(data.slicing) });
+    }
+
     async function generateModel() {
-      if (!selectedFile) return showError('Please upload an image first.');
+      if (!selectedFile) return showError(t('err.noImage'));
 
       errorBanner.classList.add('hidden');
       slicingNotice.classList.add('hidden');
       loadingOverlay.classList.remove('hidden');
-      loadingStatusText.innerText = "Extracting contours & slicing for Prusa " + printerSelect.value.toUpperCase() + "...";
+      setText(loadingStatusText, 'loading.generating', { printer: printerSelect.value.toUpperCase() });
 
       const formData = new FormData();
       formData.append('image', selectedFile);
@@ -830,7 +882,7 @@
 
         const data = await response.json();
         if (!response.ok) {
-          throw new Error(data.detail || 'Failed to generate 3D model.');
+          throw new Error(data.detail || t('err.generateFailed'));
         }
 
         if (data.preview_b64) {
@@ -839,12 +891,8 @@
         }
 
         resultsSection.classList.remove('hidden');
-        document.getElementById('resInnerDims').innerText = `${data.dimensions.inner_width_mm} × ${data.dimensions.inner_height_mm} mm`;
-        document.getElementById('resPrintDims').innerText = `${data.stats.print_width_mm} × ${data.stats.print_length_mm} × ${data.stats.print_height_mm} mm`;
-        document.getElementById('resPrinter').innerText = data.printer_name || printerSelect.value.toUpperCase();
-        document.getElementById('resTriangles').innerText = data.stats.triangle_count.toLocaleString();
-        document.getElementById('resPrintTime').innerText = data.slicing?.estimated_print_time || "N/A";
-        document.getElementById('resFilament').innerText = data.slicing?.filament_used_meters ? `${data.slicing.filament_used_meters} m` : "N/A";
+        lastGenerateData = data;
+        renderGenerateTexts(data);
 
         const downloadStlBtn = document.getElementById('downloadStlBtn');
         const downloadGcodeBtn = document.getElementById('downloadGcodeBtn');
@@ -856,20 +904,16 @@
         if (data.downloads.gcode_url) {
           downloadGcodeBtn.href = data.downloads.gcode_url;
           downloadGcodeBtn.download = data.downloads.gcode_filename || `cookie_cutter_${data.printer_model}.gcode`;
-          downloadGcodeText.innerText = `Download Prusa ${data.printer_model.toUpperCase()} G-code (.GCODE)`;
           downloadGcodeBtn.classList.remove('hidden');
         } else {
           downloadGcodeBtn.classList.add('hidden');
-          if (data.slicing?.error) {
-            slicingNoticeText.innerText = "G-code slicing note: " + data.slicing.error;
-            slicingNotice.classList.remove('hidden');
-          }
+          slicingNotice.classList.toggle('hidden', !data.slicing?.error);
         }
 
         lastJobId = data.job_id;
         resetSaveButton();
         document.getElementById('saveNameInput').value = sourceLibraryItem
-          ? `${sourceLibraryItem.name} – ${targetSizeInput.value} mm${currentMode === 'stamp' ? ' stamp' : ''}`.slice(0, 80)
+          ? `${sourceLibraryItem.name} – ${mm(targetSizeInput.value)}${currentMode === 'stamp' ? ' ' + t('card.stamp').toLowerCase() : ''}`.slice(0, 80)
           : (selectedFile.name || '').replace(/\.[^.]+$/, '').slice(0, 80);
         lastJobSourceId = sourceLibraryItem?.id || null;
 
@@ -892,7 +936,7 @@
     async function apiJson(url, options = {}) {
       const resp = await fetch(url, { ...options, headers: authHeaders(options.headers || {}) });
       const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(data.detail || `Request failed (HTTP ${resp.status})`);
+      if (!resp.ok) throw new Error(data.detail || t('err.requestFailed', { status: resp.status }));
       return data;
     }
 
@@ -900,7 +944,7 @@
     async function authBlobUrl(url) {
       if (blobUrlCache.has(url)) return blobUrlCache.get(url);
       const resp = await fetch(url, { headers: authHeaders() });
-      if (!resp.ok) throw new Error(`Failed to load file (HTTP ${resp.status})`);
+      if (!resp.ok) throw new Error(t('err.loadFile', { status: resp.status }));
       const objectUrl = URL.createObjectURL(await resp.blob());
       blobUrlCache.set(url, objectUrl);
       return objectUrl;
@@ -910,28 +954,28 @@
       const btn = document.getElementById('saveToLibraryBtn');
       btn.disabled = false;
       btn.classList.remove('opacity-60');
-      document.getElementById('saveToLibraryText').innerText = 'Save';
+      setText('saveToLibraryText', 'save.button');
     }
 
     async function saveToLibrary() {
-      if (!lastJobId) return showError('Generate a cutter first.');
+      if (!lastJobId) return showError(t('err.generateFirst'));
       const name = document.getElementById('saveNameInput').value.trim();
-      if (!name) return showError('Enter a name for the cutter.');
+      if (!name) return showError(t('err.enterName'));
       const btn = document.getElementById('saveToLibraryBtn');
       const text = document.getElementById('saveToLibraryText');
       btn.disabled = true;
-      text.innerText = 'Saving…';
+      setText(text, 'save.saving');
       try {
         await apiJson('/api/library', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ job_id: lastJobId, name, source_id: lastJobSourceId }),
         });
-        text.innerText = 'Saved ✓';
+        setText(text, 'save.saved');
         btn.classList.add('opacity-60');
       } catch (err) {
         btn.disabled = false;
-        text.innerText = 'Save';
+        setText(text, 'save.button');
         showError(err.message);
       }
     }
@@ -949,7 +993,7 @@
 
     function showLibraryList() {
       currentLibraryItem = null;
-      document.getElementById('libraryTitle').innerText = 'Cutter Library';
+      setText('libraryTitle', 'library.title');
       document.getElementById('libraryBackBtn').classList.add('hidden');
       document.getElementById('libraryDetailView').classList.add('hidden');
       document.getElementById('plateView').classList.add('hidden');
@@ -959,24 +1003,24 @@
 
     async function loadLibrary() {
       const status = document.getElementById('libraryStatus');
-      status.innerText = 'Loading…';
+      setText(status, 'library.loading');
       try {
         const data = await apiJson('/api/library');
         libraryItems = data.items;
         renderLibraryList();
       } catch (err) {
-        status.innerText = err.message;
+        setRawText(status, err.message);
       }
     }
 
     function formatDate(iso) {
       const d = new Date(iso);
-      return isNaN(d) ? '' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      return isNaN(d) ? '' : d.toLocaleDateString(i18n.lang, { year: 'numeric', month: 'short', day: 'numeric' });
     }
 
     function itemSizeText(item) {
       const d = item.dimensions || {};
-      return `${d.inner_width_mm ?? '?'} × ${d.inner_height_mm ?? '?'} mm`;
+      return mm(`${d.inner_width_mm ?? '?'} × ${d.inner_height_mm ?? '?'}`);
     }
 
     function renderLibraryList() {
@@ -995,10 +1039,10 @@
 
       grid.replaceChildren();
       if (!libraryItems.length) {
-        status.innerText = 'No saved cutters yet. Generate one and press "Save" under the results.';
+        setText(status, 'library.empty');
         return;
       }
-      status.innerText = `${items.length} of ${libraryItems.length} cutters`;
+      setText(status, 'library.count', { shown: items.length, total: libraryItems.length });
 
       for (const item of items) {
         const card = document.createElement('button');
@@ -1028,7 +1072,7 @@
         title.textContent = item.name;
         const sub = document.createElement('div');
         sub.className = 'text-[10px] text-slate-400 font-mono truncate';
-        sub.textContent = `${itemSizeText(item)} · ${item.mode === 'stamp' ? 'Stamp' : 'Cutter'}`;
+        sub.textContent = `${itemSizeText(item)} · ${t(item.mode === 'stamp' ? 'card.stamp' : 'card.cutter')}`;
         const date = document.createElement('div');
         date.className = 'text-[10px] text-slate-500 truncate';
         date.textContent = `${formatDate(item.created_at)} · ${item.owner || ''}`;
@@ -1041,7 +1085,7 @@
 
     function showLibraryDetail(item) {
       currentLibraryItem = item;
-      document.getElementById('libraryTitle').innerText = item.name;
+      setRawText('libraryTitle', item.name);
       document.getElementById('libraryBackBtn').classList.remove('hidden');
       document.getElementById('libraryListView').classList.add('hidden');
       document.getElementById('plateView').classList.add('hidden');
@@ -1056,24 +1100,24 @@
       if (item.urls.mask) authBlobUrl(item.urls.mask).then(u => { if (currentLibraryItem === item) mask.src = u; }).catch(() => {});
 
       document.getElementById('detailMeta').textContent =
-        `Saved ${formatDate(item.created_at)} by ${item.owner || 'unknown'}` +
-        (item.original_filename ? ` · source: ${item.original_filename}` : '');
+        t('detail.savedBy', { date: formatDate(item.created_at), owner: item.owner || t('detail.unknownOwner') }) +
+        (item.original_filename ? t('detail.source', { file: item.original_filename }) : '');
 
       const p = item.params || {};
       const s = item.stats || {};
       const rows = [
-        ['Mode', item.mode === 'stamp' ? 'Cutter + Stamp' : 'Cutter only'],
-        ['Printer', item.printer_name || p.printer_model],
-        ['Inner cut', itemSizeText(item)],
-        ['Print size', s.print_width_mm ? `${s.print_width_mm} × ${s.print_length_mm} × ${s.print_height_mm} mm` : '--'],
-        ['Target size', `${p.target_size_mm} mm`],
-        ['Blade height', `${p.blade_height} mm`],
-        ['Handle rim', `${p.handle_width} mm`],
-        ['Smoothing', `${p.simplify_tol} mm`],
-        ['Inverted', p.invert ? 'Yes' : 'No'],
-        ['Print time', item.slicing?.estimated_print_time || 'N/A'],
-        ['Filament', item.slicing?.filament_used_meters ? `${item.slicing.filament_used_meters} m` : 'N/A'],
-        ['Triangles', s.triangle_count ? s.triangle_count.toLocaleString() : '--'],
+        [t('param.mode'), t(item.mode === 'stamp' ? 'mode.stamp' : 'library.filterOutline')],
+        [t('param.printer'), item.printer_name || p.printer_model],
+        [t('param.innerCut'), itemSizeText(item)],
+        [t('param.printSize'), s.print_width_mm ? mm(`${s.print_width_mm} × ${s.print_length_mm} × ${s.print_height_mm}`) : '--'],
+        [t('param.targetSize'), mm(p.target_size_mm)],
+        [t('param.bladeHeight'), mm(p.blade_height)],
+        [t('param.handleRim'), mm(p.handle_width)],
+        [t('param.smoothing'), mm(p.simplify_tol)],
+        [t('param.inverted'), t(p.invert ? 'common.yes' : 'common.no')],
+        [t('param.printTime'), item.slicing?.estimated_print_time || t('common.na')],
+        [t('param.filament'), item.slicing?.filament_used_meters ? `${item.slicing.filament_used_meters} ${t('unit.m')}` : t('common.na')],
+        [t('param.triangles'), s.triangle_count ? fmtNumber(s.triangle_count) : '--'],
       ];
       const dl = document.getElementById('detailParams');
       dl.replaceChildren();
@@ -1088,7 +1132,7 @@
       }
 
       document.getElementById('detailGcodeBtn').classList.toggle('hidden', !item.urls.gcode);
-      document.getElementById('detailGcodeText').innerText = `${(p.printer_model || '').toUpperCase()} G-code`;
+      setText('detailGcodeText', 'detail.gcode', { printer: (p.printer_model || '').toUpperCase() });
 
       const myEmail = (currentUser?.email || '').toLowerCase();
       const canDelete = config.auth_disabled || (item.owner || '').toLowerCase() === myEmail;
@@ -1115,7 +1159,7 @@
     // ---------------------------------------------------------------------
     function setPlateMode(on) {
       plateMode = on;
-      document.getElementById('plateModeText').innerText = on ? 'Done selecting' : 'Select for print plate';
+      setText('plateModeText', on ? 'plate.doneSelecting' : 'plate.selectMode');
       updatePlateSelectionBar();
       renderLibraryList();
     }
@@ -1131,9 +1175,8 @@
       const listVisible = !document.getElementById('libraryListView').classList.contains('hidden');
       document.getElementById('plateSelectionBar').classList.toggle('hidden', !(plateMode && listVisible));
       const copies = [...plateSelection.values()].reduce((a, b) => a + b, 0);
-      document.getElementById('plateSelectionText').innerText = plateSelection.size
-        ? `${plateSelection.size} cutter${plateSelection.size > 1 ? 's' : ''} selected (${copies} on the plate)`
-        : 'Tap cutters to add them to the plate';
+      if (plateSelection.size) setText('plateSelectionText', 'plate.selected', { count: plateSelection.size, copies });
+      else setText('plateSelectionText', 'plate.tapToAdd');
       document.getElementById('plateNextBtn').disabled = plateSelection.size === 0;
     }
 
@@ -1146,7 +1189,7 @@
 
     function showPlateView() {
       currentLibraryItem = null;
-      document.getElementById('libraryTitle').innerText = 'Print Plate';
+      setText('libraryTitle', 'plate.title');
       document.getElementById('libraryBackBtn').classList.remove('hidden');
       document.getElementById('libraryListView').classList.add('hidden');
       document.getElementById('libraryDetailView').classList.add('hidden');
@@ -1176,14 +1219,14 @@
         name.textContent = item.name;
         const size = document.createElement('div');
         size.className = 'text-[10px] text-slate-400 font-mono';
-        size.textContent = item.stats?.print_width_mm ? `${item.stats.print_width_mm} × ${item.stats.print_length_mm} mm footprint` : itemSizeText(item);
+        size.textContent = item.stats?.print_width_mm ? t('plate.footprint', { width: item.stats.print_width_mm, length: item.stats.print_length_mm }) : itemSizeText(item);
         info.append(name, size);
         const qtyInput = document.createElement('input');
         qtyInput.type = 'number';
         qtyInput.min = 1;
         qtyInput.max = 30;
         qtyInput.value = qty;
-        qtyInput.setAttribute('aria-label', `Quantity of ${item.name}`);
+        qtyInput.setAttribute('aria-label', t('plate.quantity', { name: item.name }));
         qtyInput.className = 'w-14 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-200 text-center focus:border-prusa focus:outline-none';
         qtyInput.onchange = () => {
           const v = Math.max(1, Math.min(30, parseInt(qtyInput.value, 10) || 1));
@@ -1193,7 +1236,7 @@
         const remove = document.createElement('button');
         remove.type = 'button';
         remove.className = 'p-1.5 text-slate-400 hover:text-red-400';
-        remove.setAttribute('aria-label', `Remove ${item.name}`);
+        remove.setAttribute('aria-label', t('plate.remove', { name: item.name }));
         remove.textContent = '✕';
         remove.onclick = () => { plateSelection.delete(id); renderPlateItems(); };
         row.append(img, info, qtyInput, remove);
@@ -1202,7 +1245,7 @@
       if (!plateSelection.size) {
         const empty = document.createElement('p');
         empty.className = 'text-xs text-slate-400';
-        empty.textContent = 'No cutters selected. Go back and pick some from the library.';
+        empty.textContent = t('plate.empty');
         list.appendChild(empty);
       }
       document.getElementById('plateBuildBtn').disabled = plateSelection.size === 0;
@@ -1213,7 +1256,7 @@
       const text = document.getElementById('plateBuildText');
       const printer = document.getElementById('platePrinterSelect').value;
       btn.disabled = true;
-      text.innerText = 'Arranging & slicing…';
+      setText(text, 'plate.building');
       try {
         const data = await apiJson('/api/plate', {
           method: 'POST',
@@ -1229,7 +1272,7 @@
         showError(err.message);
       } finally {
         btn.disabled = plateSelection.size === 0;
-        text.innerText = 'Arrange & Slice';
+        setText(text, 'plate.build');
       }
     }
 
@@ -1258,19 +1301,19 @@
         const label = el('text', { x: part.x + part.width / 2, y: y + part.length / 2, fill: '#f8fafc', 'font-size': Math.max(4, Math.min(9, part.width / 8)), 'text-anchor': 'middle', 'dominant-baseline': 'middle', 'font-family': 'sans-serif' });
         label.textContent = part.name;
         const title = el('title', {});
-        title.textContent = `${part.name}: ${part.width} × ${part.length} mm${part.rotated ? ' (rotated 90°)' : ''}`;
+        title.textContent = `${part.name}: ${mm(`${part.width} × ${part.length}`)}${part.rotated ? t('plate.rotated') : ''}`;
         label.appendChild(title);
         svg.appendChild(label);
       }
 
       const s = data.slicing || {};
       const rows = [
-        ['Printer', data.printer_name],
-        ['Cutters', data.copies],
-        ['Plate size', `${data.extents_mm[0]} × ${data.extents_mm[1]} × ${data.extents_mm[2]} mm`],
-        ['Print time', s.estimated_print_time || 'N/A'],
-        ['Filament', s.filament_used_meters ? `${s.filament_used_meters} m` : 'N/A'],
-        ['Triangles', data.triangle_count.toLocaleString()],
+        [t('param.printer'), data.printer_name],
+        [t('plate.cutters'), data.copies],
+        [t('plate.size'), mm(`${data.extents_mm[0]} × ${data.extents_mm[1]} × ${data.extents_mm[2]}`)],
+        [t('param.printTime'), s.estimated_print_time || t('common.na')],
+        [t('param.filament'), s.filament_used_meters ? `${s.filament_used_meters} ${t('unit.m')}` : t('common.na')],
+        [t('param.triangles'), fmtNumber(data.triangle_count)],
       ];
       const stats = document.getElementById('plateStats');
       stats.replaceChildren();
@@ -1293,7 +1336,7 @@
         notice.classList.add('hidden');
       } else {
         gcodeBtn.classList.add('hidden');
-        notice.textContent = 'G-code slicing note: ' + (s.error || 'no G-code was produced.');
+        notice.textContent = t('slicing.note', { error: slicingErrorText(s) });
         notice.classList.remove('hidden');
       }
       const projectBtn = document.getElementById('plateProjectBtn');
@@ -1322,7 +1365,7 @@
       if (!item || !item.urls[kind]) return;
       try {
         const resp = await fetch(item.urls[kind], { headers: authHeaders() });
-        if (!resp.ok) throw new Error(`Download failed (HTTP ${resp.status})`);
+        if (!resp.ok) throw new Error(t('err.downloadFailed', { status: resp.status }));
         const disposition = resp.headers.get('Content-Disposition') || '';
         const match = disposition.match(/filename="?([^";]+)"?/);
         const a = document.createElement('a');
@@ -1358,9 +1401,9 @@
       if (!item) return;
       const p = item.params || {};
       try {
-        if (!item.urls.original) throw new Error('This cutter has no stored original image.');
+        if (!item.urls.original) throw new Error(t('err.noOriginal'));
         const resp = await fetch(item.urls.original, { headers: authHeaders() });
-        if (!resp.ok) throw new Error(`Failed to load original image (HTTP ${resp.status})`);
+        if (!resp.ok) throw new Error(t('err.loadOriginal', { status: resp.status }));
         const blob = await resp.blob();
         handleFile(new File([blob], item.original_filename || item.files.original, { type: blob.type.startsWith('image/') ? blob.type : 'image/png' }), item);
         if (!withSettings) {
@@ -1372,7 +1415,7 @@
         const setSlider = (input, label, value, unit) => {
           if (value === undefined || value === null) return;
           input.value = value;
-          label.innerText = `${input.value} ${unit}`;
+          label.innerText = mm(input.value);
         };
         setSlider(targetSizeInput, targetSizeVal, p.target_size_mm, 'mm');
         setSlider(bladeHeightInput, bladeHeightVal, p.blade_height, 'mm');
@@ -1389,7 +1432,7 @@
 
     async function deleteLibraryItem() {
       const item = currentLibraryItem;
-      if (!item || !confirm(`Delete "${item.name}" from the library? This cannot be undone.`)) return;
+      if (!item || !confirm(t('confirm.delete', { name: item.name }))) return;
       try {
         await apiJson(`/api/library/${item.id}`, { method: 'DELETE' });
         libraryItems = libraryItems.filter(i => i.id !== item.id);
@@ -1440,7 +1483,7 @@
         const authStatusBadge = document.getElementById('authStatusBadge');
         if (config.auth_disabled) {
           authStatusBadge.classList.remove('hidden');
-          authStatusBadge.innerText = 'Dev Mode: Public Access';
+          setText(authStatusBadge, 'auth.devMode');
           return;
         }
 
@@ -1452,10 +1495,7 @@
             callback: handleCredentialResponse,
             auto_select: true
           });
-          google.accounts.id.renderButton(
-            document.getElementById('g_id_signin_container'),
-            { theme: 'outline', size: 'medium', shape: 'pill' }
-          );
+          renderGoogleButton();
           if (!restored) {
             google.accounts.id.prompt();
           }
@@ -1463,6 +1503,13 @@
       } catch (e) {
         console.error("Auth init error:", e);
       }
+    }
+
+    function renderGoogleButton() {
+      if (!config.google_client_id || !window.google?.accounts?.id) return;
+      const container = document.getElementById('g_id_signin_container');
+      container.replaceChildren();
+      google.accounts.id.renderButton(container, { theme: 'outline', size: 'medium', shape: 'pill', locale: i18n.lang });
     }
 
     function handleCredentialResponse(response) {
@@ -1496,6 +1543,25 @@
       document.getElementById('g_id_signin_container').classList.remove('hidden');
       document.getElementById('userProfile').classList.add('hidden');
     }
+
+    // Re-render everything built in code when the language changes; static markup is handled by applyTranslations()
+    document.addEventListener('languagechange', () => {
+      document.getElementById('langSelect').value = i18n.lang;
+      for (const input of [targetSizeInput, bladeHeightInput, handleWidthInput, simplifyInput]) {
+        input.dispatchEvent(new Event('input'));
+      }
+      if (lastGenerateData) renderGenerateTexts(lastGenerateData);
+      const visible = (id) => !document.getElementById(id).classList.contains('hidden');
+      if (visible('libraryModal')) {
+        if (visible('libraryListView')) renderLibraryList();
+        if (visible('libraryDetailView') && currentLibraryItem) showLibraryDetail(currentLibraryItem);
+        if (visible('plateView')) {
+          renderPlateItems();
+          if (lastPlate && visible('plateResult')) renderPlateResult(lastPlate);
+        }
+      }
+      renderGoogleButton();
+    });
 
     window.onload = () => {
       init3D();
