@@ -10,6 +10,7 @@ import base64
 import shutil
 import logging
 from pathlib import Path
+from typing import Optional
 
 from fastapi import (
     FastAPI,
@@ -291,6 +292,7 @@ async def download_file(job_id: str, filename: str):
 class SaveToLibraryRequest(BaseModel):
     job_id: str
     name: str
+    source_id: Optional[str] = None
 
 
 def library_item_response(meta: dict) -> dict:
@@ -321,7 +323,7 @@ def save_to_library(req: SaveToLibraryRequest, user_info: dict = Depends(verify_
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid job id.")
     try:
-        meta = library.save_from_job(JOBS_DIR / job_id, req.name, user_info.get("email"))
+        meta = library.save_from_job(JOBS_DIR / job_id, req.name, user_info.get("email"), req.source_id)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
