@@ -27,8 +27,8 @@ A self-contained web application that transforms 2D images (JPEG, PNG, WebP) int
   - Select several cutters from the library (with a quantity for each) and print them in one go.
   - Footprints are packed onto the chosen printer's bed with MaxRects (5 mm gaps, 90° rotation when it helps) so nothing overlaps; a top-view layout preview is shown.
   - Downloads: sliced G-code, a PrusaSlicer project (`.3mf`, one named object per cutter) and a combined STL; the plate can also be viewed on the 3D bed.
-- **Languages: English, French, Russian:**
-  - EN / FR / RU drop-down in the header; the choice is saved in a `lang` cookie for a year. Without a cookie the browser language is used.
+- **Languages: English, French, Russian, Ukrainian:**
+  - EN / FR / RU / UA drop-down in the header; the choice is saved in a `lang` cookie for a year. Without a cookie the browser language is used.
   - UI strings live in `app/static/i18n.js`; server error messages are translated in `app/i18n.py` using the same cookie.
 - **Google OAuth 2.0 Allowlist Protection:**
   - Secure access restricted to you and your friends' Google accounts.
@@ -183,9 +183,9 @@ prusa-cookiecutter-app/
 │   ├── slicer.py            # PrusaSlicer CLI execution & G-code metadata parser
 │   ├── library.py           # Persistent cutter library (files + metadata in LIBRARY_DIR)
 │   ├── plate.py             # Print plate: bed packing of several cutters, STL/3MF export
-│   ├── i18n.py              # Translated server error messages (EN/FR/RU)
+│   ├── i18n.py              # Translated server error messages (EN/FR/RU/UK)
 │   ├── static/
-│   │   └── i18n.js          # UI translations (EN/FR/RU) and language switching
+│   │   └── i18n.js          # UI translations (EN/FR/RU/UK) and language switching
 │   ├── main.py              # FastAPI endpoints & background cleanup
 │   └── templates/
 │       └── index.html       # Single-page UI with Three.js 3D viewport & Prusa bed
