@@ -1,0 +1,571 @@
+/*
+ * UI translations (English, French, Russian).
+ *
+ * Static markup uses data attributes, applied by applyTranslations():
+ *   data-i18n="key"              -> textContent
+ *   data-i18n-placeholder="key"  -> placeholder
+ *   data-i18n-aria-label="key"   -> aria-label
+ *   data-i18n-alt="key"          -> alt
+ *   data-i18n-params='{"k":"v"}' -> parameters for the data-i18n key
+ * Script code calls t(key, params). An entry may be an object of plural forms
+ * (one / few / many / other) chosen with Intl.PluralRules from params.count.
+ * The chosen language is stored in the `lang` cookie, which the server also reads.
+ */
+(function () {
+  const SUPPORTED = ['en', 'fr', 'ru'];
+  const COOKIE = 'lang';
+
+  const MESSAGES = {
+    en: {
+      'app.title': 'Cookie Cutter Studio',
+      'app.subtitle': 'Headless Slicing for Prusa MK4S, MK4, MK3S+, MINI+',
+      'lang.label': 'Language',
+      'nav.library': 'Library',
+      'nav.plate': 'Print Plate',
+      'auth.signOut': 'Sign out',
+      'auth.devMode': 'Dev Mode: Public Access',
+      'tab.design': '1. Design & Printer',
+      'tab.view3d': '2. 3D Bed View',
+      'common.dismiss': 'Dismiss',
+      'common.na': 'N/A',
+      'common.yes': 'Yes',
+      'common.no': 'No',
+      'unit.mm': 'mm',
+      'unit.m': 'm',
+      'error.generic': 'An error occurred',
+
+      'upload.title': '1. Upload Image',
+      'upload.tap': 'Tap to upload / take photo',
+      'upload.types': 'PNG, JPG, Silhouette, or Clipart',
+      'upload.previewAlt': 'Preview',
+      'upload.change': 'Change image',
+      'upload.fromLibrary': 'From library:',
+      'upload.reuse': '…or reuse an image from the library',
+      'upload.invert': 'Invert Colors (Dark/Light)',
+
+      'mode.title': '2. Cutter Mode',
+      'mode.cutter': 'Cutter Only',
+      'mode.stamp': 'Cutter + Stamp',
+      'mode.cutterDesc': 'Generates a 3-tier perimeter blade that cuts completely through dough.',
+      'mode.stampDesc': 'Generates outer cutter blade + solid backing plate + recessed interior imprint ribs.',
+
+      'printer.title': '3. Target Prusa Printer (G-code)',
+      'printer.option': '{name} (0.4 mm nozzle · {bed} mm)',
+
+      'size.title': '4. Sizing & Geometry',
+      'size.target': 'Target Inner Cut Size',
+      'size.targetHint': 'The longest inner dimension of the cut dough.',
+      'size.blade': 'Blade Height',
+      'size.rim': 'Handle Rim Width',
+      'size.smoothing': 'Mesh Smoothing',
+
+      'generate.button': 'Generate STL & Slice G-code',
+      'mask.title': 'Detected 2D Mask',
+      'mask.alt': 'Detected mask',
+
+      'results.title': 'Model Specifications',
+      'results.watertight': 'Watertight',
+      'results.innerCut': 'Inner Cut:',
+      'results.printSize': 'Print Size:',
+      'results.printer': 'Printer:',
+      'results.printTime': 'Print Time:',
+      'results.filament': 'Filament:',
+      'results.triangles': 'Triangles:',
+      'results.downloadStl': 'Download 3D Model (.STL)',
+      'results.downloadGcode': 'Download Prusa {printer} G-code (.GCODE)',
+
+      'save.title': 'Save to Library',
+      'save.placeholder': 'e.g. Christmas tree',
+      'save.button': 'Save',
+      'save.saving': 'Saving…',
+      'save.saved': 'Saved ✓',
+      'save.hint': 'Stores the STL, G-code, original image and all parameters.',
+
+      'hud.bed': '{printer} Bed ({width} × {height} mm)',
+      'view.3d': '3D',
+      'view.top': 'Top',
+      'view.touchHint': '1 finger: rotate | 2 fingers: pinch to zoom',
+      'loading.default': 'Processing geometry & slicing G-code…',
+      'loading.generating': 'Extracting contours & slicing for Prusa {printer}…',
+
+      'library.title': 'Cutter Library',
+      'library.back': 'Back to library',
+      'library.close': 'Close library',
+      'library.search': 'Search by name…',
+      'library.filterAll': 'All cutters',
+      'library.filterMine': 'Saved by me',
+      'library.filterOutline': 'Cutter only',
+      'library.filterStamp': 'Cutter + Stamp',
+      'library.loading': 'Loading…',
+      'library.empty': 'No saved cutters yet. Generate one and press "Save" under the results.',
+      'library.count': '{shown} of {total} cutters',
+      'card.cutter': 'Cutter',
+      'card.stamp': 'Stamp',
+
+      'detail.original': 'Original image',
+      'detail.mask': 'Detected 2D mask',
+      'detail.savedBy': 'Saved {date} by {owner}',
+      'detail.source': ' · source: {file}',
+      'detail.unknownOwner': 'unknown',
+      'detail.reuseTitle': 'Make a new cutter from this image',
+      'detail.withCurrent': 'With current settings',
+      'detail.withSaved': 'With saved settings',
+      'detail.related': 'Other cutters from this image',
+      'detail.view3d': '3D',
+      'detail.stl': 'STL',
+      'detail.gcode': '{printer} G-code',
+      'detail.addToPlate': 'Add to print plate',
+      'detail.delete': 'Delete from Library',
+      'confirm.delete': 'Delete "{name}" from the library? This cannot be undone.',
+
+      'param.mode': 'Mode',
+      'param.printer': 'Printer',
+      'param.innerCut': 'Inner cut',
+      'param.printSize': 'Print size',
+      'param.targetSize': 'Target size',
+      'param.bladeHeight': 'Blade height',
+      'param.handleRim': 'Handle rim',
+      'param.smoothing': 'Smoothing',
+      'param.inverted': 'Inverted',
+      'param.printTime': 'Print time',
+      'param.filament': 'Filament',
+      'param.triangles': 'Triangles',
+
+      'plate.title': 'Print Plate',
+      'plate.selectMode': 'Select for print plate',
+      'plate.doneSelecting': 'Done selecting',
+      'plate.tapToAdd': 'Tap cutters to add them to the plate',
+      'plate.selected': {
+        one: '{count} cutter selected ({copies} on the plate)',
+        other: '{count} cutters selected ({copies} on the plate)',
+      },
+      'plate.next': 'Next',
+      'plate.onPlate': 'Cutters on the plate',
+      'plate.printer': 'Printer',
+      'plate.build': 'Arrange & Slice',
+      'plate.building': 'Arranging & slicing…',
+      'plate.hint': 'Cutters are packed by their bounding boxes with 5 mm gaps and may be rotated 90° to fit.',
+      'plate.layout': 'Bed layout (top view)',
+      'plate.gcode': 'G-code',
+      'plate.project': 'Prusa project (.3mf)',
+      'plate.stl': 'Combined STL',
+      'plate.view3d': 'View on 3D bed',
+      'plate.footprint': '{width} × {length} mm footprint',
+      'plate.quantity': 'Quantity of {name}',
+      'plate.remove': 'Remove {name}',
+      'plate.empty': 'No cutters selected. Go back and pick some from the library.',
+      'plate.rotated': ' (rotated 90°)',
+      'plate.cutters': 'Cutters',
+      'plate.size': 'Plate size',
+
+      'slicing.note': 'G-code slicing note: {error}',
+      'slicer.noGcode': 'no G-code was produced.',
+      'slicer.slicer_not_found': 'PrusaSlicer is not available on the server.',
+      'slicer.slicer_timeout': 'Slicing timed out after {seconds} seconds.',
+      'slicer.slicer_no_output': 'PrusaSlicer finished but produced no G-code.',
+      'slicer.slicer_failed': 'PrusaSlicer failed: {error}',
+
+      'err.invalidImage': 'Please upload a valid image (PNG, JPG, WebP)',
+      'err.noImage': 'Please upload an image first.',
+      'err.render3d': 'Could not render 3D preview: {error}',
+      'err.generateFailed': 'Failed to generate 3D model.',
+      'err.requestFailed': 'Request failed (HTTP {status})',
+      'err.loadFile': 'Failed to load file (HTTP {status})',
+      'err.loadStl': 'Failed to load STL (HTTP {status})',
+      'err.generateFirst': 'Generate a cutter first.',
+      'err.enterName': 'Enter a name for the cutter.',
+      'err.downloadFailed': 'Download failed (HTTP {status})',
+      'err.noOriginal': 'This cutter has no stored original image.',
+      'err.loadOriginal': 'Failed to load original image (HTTP {status})',
+    },
+
+    fr: {
+      'app.title': 'Studio d\'emporte-pièces',
+      'app.subtitle': 'Tranchage automatique pour Prusa MK4S, MK4, MK3S+, MINI+',
+      'lang.label': 'Langue',
+      'nav.library': 'Bibliothèque',
+      'nav.plate': 'Plateau d\'impression',
+      'auth.signOut': 'Se déconnecter',
+      'auth.devMode': 'Mode dév. : accès public',
+      'tab.design': '1. Design et imprimante',
+      'tab.view3d': '2. Vue 3D du plateau',
+      'common.dismiss': 'Fermer',
+      'common.na': 'N/D',
+      'common.yes': 'Oui',
+      'common.no': 'Non',
+      'unit.mm': 'mm',
+      'unit.m': 'm',
+      'error.generic': 'Une erreur s\'est produite',
+
+      'upload.title': '1. Importer une image',
+      'upload.tap': 'Touchez pour importer / prendre une photo',
+      'upload.types': 'PNG, JPG, silhouette ou clipart',
+      'upload.previewAlt': 'Aperçu',
+      'upload.change': 'Changer d\'image',
+      'upload.fromLibrary': 'Depuis la bibliothèque :',
+      'upload.reuse': '…ou réutiliser une image de la bibliothèque',
+      'upload.invert': 'Inverser les couleurs (sombre/clair)',
+
+      'mode.title': '2. Type d\'emporte-pièce',
+      'mode.cutter': 'Emporte-pièce seul',
+      'mode.stamp': 'Emporte-pièce + tampon',
+      'mode.cutterDesc': 'Génère une lame périphérique à 3 niveaux qui découpe entièrement la pâte.',
+      'mode.stampDesc': 'Génère la lame extérieure + une plaque de fond pleine + des nervures intérieures en retrait pour marquer la pâte.',
+
+      'printer.title': '3. Imprimante Prusa cible (G-code)',
+      'printer.option': '{name} (buse 0,4 mm · {bed} mm)',
+
+      'size.title': '4. Dimensions et géométrie',
+      'size.target': 'Taille de découpe intérieure',
+      'size.targetHint': 'La plus grande dimension intérieure de la pâte découpée.',
+      'size.blade': 'Hauteur de lame',
+      'size.rim': 'Largeur du rebord de prise',
+      'size.smoothing': 'Lissage du maillage',
+
+      'generate.button': 'Générer le STL et trancher le G-code',
+      'mask.title': 'Masque 2D détecté',
+      'mask.alt': 'Masque détecté',
+
+      'results.title': 'Caractéristiques du modèle',
+      'results.watertight': 'Étanche',
+      'results.innerCut': 'Découpe int. :',
+      'results.printSize': 'Taille d\'impr. :',
+      'results.printer': 'Imprimante :',
+      'results.printTime': 'Durée d\'impr. :',
+      'results.filament': 'Filament :',
+      'results.triangles': 'Triangles :',
+      'results.downloadStl': 'Télécharger le modèle 3D (.STL)',
+      'results.downloadGcode': 'Télécharger le G-code Prusa {printer} (.GCODE)',
+
+      'save.title': 'Enregistrer dans la bibliothèque',
+      'save.placeholder': 'ex. Sapin de Noël',
+      'save.button': 'Enregistrer',
+      'save.saving': 'Enregistrement…',
+      'save.saved': 'Enregistré ✓',
+      'save.hint': 'Conserve le STL, le G-code, l\'image d\'origine et tous les paramètres.',
+
+      'hud.bed': 'Plateau {printer} ({width} × {height} mm)',
+      'view.3d': '3D',
+      'view.top': 'Dessus',
+      'view.touchHint': '1 doigt : pivoter | 2 doigts : pincer pour zoomer',
+      'loading.default': 'Traitement de la géométrie et tranchage du G-code…',
+      'loading.generating': 'Extraction des contours et tranchage pour Prusa {printer}…',
+
+      'library.title': 'Bibliothèque d\'emporte-pièces',
+      'library.back': 'Retour à la bibliothèque',
+      'library.close': 'Fermer la bibliothèque',
+      'library.search': 'Rechercher par nom…',
+      'library.filterAll': 'Tous les emporte-pièces',
+      'library.filterMine': 'Enregistrés par moi',
+      'library.filterOutline': 'Emporte-pièce seul',
+      'library.filterStamp': 'Emporte-pièce + tampon',
+      'library.loading': 'Chargement…',
+      'library.empty': 'Aucun emporte-pièce enregistré. Générez-en un puis cliquez sur « Enregistrer » sous les résultats.',
+      'library.count': '{shown} sur {total} emporte-pièces',
+      'card.cutter': 'Emporte-pièce',
+      'card.stamp': 'Tampon',
+
+      'detail.original': 'Image d\'origine',
+      'detail.mask': 'Masque 2D détecté',
+      'detail.savedBy': 'Enregistré le {date} par {owner}',
+      'detail.source': ' · source : {file}',
+      'detail.unknownOwner': 'inconnu',
+      'detail.reuseTitle': 'Créer un emporte-pièce à partir de cette image',
+      'detail.withCurrent': 'Avec les réglages actuels',
+      'detail.withSaved': 'Avec les réglages enregistrés',
+      'detail.related': 'Autres emporte-pièces de cette image',
+      'detail.view3d': '3D',
+      'detail.stl': 'STL',
+      'detail.gcode': 'G-code {printer}',
+      'detail.addToPlate': 'Ajouter au plateau d\'impression',
+      'detail.delete': 'Supprimer de la bibliothèque',
+      'confirm.delete': 'Supprimer « {name} » de la bibliothèque ? Cette action est irréversible.',
+
+      'param.mode': 'Type',
+      'param.printer': 'Imprimante',
+      'param.innerCut': 'Découpe intérieure',
+      'param.printSize': 'Taille d\'impression',
+      'param.targetSize': 'Taille cible',
+      'param.bladeHeight': 'Hauteur de lame',
+      'param.handleRim': 'Rebord de prise',
+      'param.smoothing': 'Lissage',
+      'param.inverted': 'Inversé',
+      'param.printTime': 'Durée d\'impression',
+      'param.filament': 'Filament',
+      'param.triangles': 'Triangles',
+
+      'plate.title': 'Plateau d\'impression',
+      'plate.selectMode': 'Sélectionner pour le plateau',
+      'plate.doneSelecting': 'Terminer la sélection',
+      'plate.tapToAdd': 'Touchez les emporte-pièces pour les ajouter au plateau',
+      'plate.selected': {
+        one: '{count} emporte-pièce sélectionné ({copies} sur le plateau)',
+        other: '{count} emporte-pièces sélectionnés ({copies} sur le plateau)',
+      },
+      'plate.next': 'Suivant',
+      'plate.onPlate': 'Emporte-pièces sur le plateau',
+      'plate.printer': 'Imprimante',
+      'plate.build': 'Disposer et trancher',
+      'plate.building': 'Disposition et tranchage…',
+      'plate.hint': 'Les emporte-pièces sont placés selon leur rectangle englobant, espacés de 5 mm, et peuvent être tournés de 90° pour tenir.',
+      'plate.layout': 'Disposition sur le plateau (vue de dessus)',
+      'plate.gcode': 'G-code',
+      'plate.project': 'Projet Prusa (.3mf)',
+      'plate.stl': 'STL combiné',
+      'plate.view3d': 'Voir sur le plateau 3D',
+      'plate.footprint': 'Empreinte {width} × {length} mm',
+      'plate.quantity': 'Quantité de {name}',
+      'plate.remove': 'Retirer {name}',
+      'plate.empty': 'Aucun emporte-pièce sélectionné. Revenez en arrière pour en choisir dans la bibliothèque.',
+      'plate.rotated': ' (tourné de 90°)',
+      'plate.cutters': 'Emporte-pièces',
+      'plate.size': 'Taille du plateau',
+
+      'slicing.note': 'Remarque sur le tranchage : {error}',
+      'slicer.noGcode': 'aucun G-code n\'a été produit.',
+      'slicer.slicer_not_found': 'PrusaSlicer n\'est pas disponible sur le serveur.',
+      'slicer.slicer_timeout': 'Le tranchage a dépassé le délai de {seconds} secondes.',
+      'slicer.slicer_no_output': 'PrusaSlicer s\'est terminé sans produire de G-code.',
+      'slicer.slicer_failed': 'Échec de PrusaSlicer : {error}',
+
+      'err.invalidImage': 'Veuillez importer une image valide (PNG, JPG, WebP)',
+      'err.noImage': 'Veuillez d\'abord importer une image.',
+      'err.render3d': 'Impossible d\'afficher l\'aperçu 3D : {error}',
+      'err.generateFailed': 'Échec de la génération du modèle 3D.',
+      'err.requestFailed': 'La requête a échoué (HTTP {status})',
+      'err.loadFile': 'Échec du chargement du fichier (HTTP {status})',
+      'err.loadStl': 'Échec du chargement du STL (HTTP {status})',
+      'err.generateFirst': 'Générez d\'abord un emporte-pièce.',
+      'err.enterName': 'Saisissez un nom pour l\'emporte-pièce.',
+      'err.downloadFailed': 'Échec du téléchargement (HTTP {status})',
+      'err.noOriginal': 'Cet emporte-pièce n\'a pas d\'image d\'origine enregistrée.',
+      'err.loadOriginal': 'Échec du chargement de l\'image d\'origine (HTTP {status})',
+    },
+
+    ru: {
+      'app.title': 'Студия формочек для печенья',
+      'app.subtitle': 'Автоматическая нарезка для Prusa MK4S, MK4, MK3S+, MINI+',
+      'lang.label': 'Язык',
+      'nav.library': 'Библиотека',
+      'nav.plate': 'Стол печати',
+      'auth.signOut': 'Выйти',
+      'auth.devMode': 'Режим разработки: открытый доступ',
+      'tab.design': '1. Дизайн и принтер',
+      'tab.view3d': '2. 3D-вид стола',
+      'common.dismiss': 'Закрыть',
+      'common.na': 'н/д',
+      'common.yes': 'Да',
+      'common.no': 'Нет',
+      'unit.mm': 'мм',
+      'unit.m': 'м',
+      'error.generic': 'Произошла ошибка',
+
+      'upload.title': '1. Загрузите изображение',
+      'upload.tap': 'Нажмите, чтобы загрузить / сфотографировать',
+      'upload.types': 'PNG, JPG, силуэт или клипарт',
+      'upload.previewAlt': 'Предпросмотр',
+      'upload.change': 'Сменить изображение',
+      'upload.fromLibrary': 'Из библиотеки:',
+      'upload.reuse': '…или взять изображение из библиотеки',
+      'upload.invert': 'Инвертировать цвета (тёмное/светлое)',
+
+      'mode.title': '2. Тип формочки',
+      'mode.cutter': 'Только вырубка',
+      'mode.stamp': 'Вырубка + штамп',
+      'mode.cutterDesc': 'Создаёт трёхступенчатое лезвие по контуру, которое прорезает тесто насквозь.',
+      'mode.stampDesc': 'Создаёт внешнее лезвие, сплошную основу и утопленные внутренние рёбра для оттиска на тесте.',
+
+      'printer.title': '3. Принтер Prusa (G-code)',
+      'printer.option': '{name} (сопло 0,4 мм · {bed} мм)',
+
+      'size.title': '4. Размеры и геометрия',
+      'size.target': 'Внутренний размер вырубки',
+      'size.targetHint': 'Наибольший внутренний размер вырезаемого теста.',
+      'size.blade': 'Высота лезвия',
+      'size.rim': 'Ширина бортика-ручки',
+      'size.smoothing': 'Сглаживание сетки',
+
+      'generate.button': 'Создать STL и нарезать G-code',
+      'mask.title': 'Найденная 2D-маска',
+      'mask.alt': 'Найденная маска',
+
+      'results.title': 'Параметры модели',
+      'results.watertight': 'Замкнутая',
+      'results.innerCut': 'Вырубка:',
+      'results.printSize': 'Размер печати:',
+      'results.printer': 'Принтер:',
+      'results.printTime': 'Время печати:',
+      'results.filament': 'Филамент:',
+      'results.triangles': 'Треугольники:',
+      'results.downloadStl': 'Скачать 3D-модель (.STL)',
+      'results.downloadGcode': 'Скачать G-code для Prusa {printer} (.GCODE)',
+
+      'save.title': 'Сохранить в библиотеку',
+      'save.placeholder': 'напр. Ёлочка',
+      'save.button': 'Сохранить',
+      'save.saving': 'Сохранение…',
+      'save.saved': 'Сохранено ✓',
+      'save.hint': 'Сохраняются STL, G-code, исходное изображение и все параметры.',
+
+      'hud.bed': 'Стол {printer} ({width} × {height} мм)',
+      'view.3d': '3D',
+      'view.top': 'Сверху',
+      'view.touchHint': '1 палец: вращение | 2 пальца: масштаб',
+      'loading.default': 'Обработка геометрии и нарезка G-code…',
+      'loading.generating': 'Поиск контуров и нарезка для Prusa {printer}…',
+
+      'library.title': 'Библиотека формочек',
+      'library.back': 'Назад к библиотеке',
+      'library.close': 'Закрыть библиотеку',
+      'library.search': 'Поиск по названию…',
+      'library.filterAll': 'Все формочки',
+      'library.filterMine': 'Сохранённые мной',
+      'library.filterOutline': 'Только вырубка',
+      'library.filterStamp': 'Вырубка + штамп',
+      'library.loading': 'Загрузка…',
+      'library.empty': 'В библиотеке пока пусто. Создайте формочку и нажмите «Сохранить» под результатами.',
+      'library.count': '{shown} из {total}',
+      'card.cutter': 'Вырубка',
+      'card.stamp': 'Штамп',
+
+      'detail.original': 'Исходное изображение',
+      'detail.mask': 'Найденная 2D-маска',
+      'detail.savedBy': 'Сохранено {date}, автор: {owner}',
+      'detail.source': ' · файл: {file}',
+      'detail.unknownOwner': 'неизвестно',
+      'detail.reuseTitle': 'Новая формочка из этого изображения',
+      'detail.withCurrent': 'С текущими настройками',
+      'detail.withSaved': 'С сохранёнными настройками',
+      'detail.related': 'Другие формочки из этого изображения',
+      'detail.view3d': '3D',
+      'detail.stl': 'STL',
+      'detail.gcode': 'G-code {printer}',
+      'detail.addToPlate': 'Добавить на стол печати',
+      'detail.delete': 'Удалить из библиотеки',
+      'confirm.delete': 'Удалить «{name}» из библиотеки? Это действие нельзя отменить.',
+
+      'param.mode': 'Тип',
+      'param.printer': 'Принтер',
+      'param.innerCut': 'Вырубка',
+      'param.printSize': 'Размер печати',
+      'param.targetSize': 'Целевой размер',
+      'param.bladeHeight': 'Высота лезвия',
+      'param.handleRim': 'Бортик-ручка',
+      'param.smoothing': 'Сглаживание',
+      'param.inverted': 'Инверсия',
+      'param.printTime': 'Время печати',
+      'param.filament': 'Филамент',
+      'param.triangles': 'Треугольники',
+
+      'plate.title': 'Стол печати',
+      'plate.selectMode': 'Выбрать для стола печати',
+      'plate.doneSelecting': 'Готово',
+      'plate.tapToAdd': 'Нажимайте на формочки, чтобы добавить их на стол',
+      'plate.selected': {
+        one: 'Выбрана {count} формочка ({copies} шт. на столе)',
+        few: 'Выбрано {count} формочки ({copies} шт. на столе)',
+        many: 'Выбрано {count} формочек ({copies} шт. на столе)',
+        other: 'Выбрано {count} формочки ({copies} шт. на столе)',
+      },
+      'plate.next': 'Далее',
+      'plate.onPlate': 'Формочки на столе',
+      'plate.printer': 'Принтер',
+      'plate.build': 'Разместить и нарезать',
+      'plate.building': 'Размещение и нарезка…',
+      'plate.hint': 'Формочки размещаются по описанным прямоугольникам с зазором 5 мм и при необходимости поворачиваются на 90°.',
+      'plate.layout': 'Раскладка на столе (вид сверху)',
+      'plate.gcode': 'G-code',
+      'plate.project': 'Проект Prusa (.3mf)',
+      'plate.stl': 'Общий STL',
+      'plate.view3d': 'Показать на 3D-столе',
+      'plate.footprint': 'Площадь {width} × {length} мм',
+      'plate.quantity': 'Количество: {name}',
+      'plate.remove': 'Убрать {name}',
+      'plate.empty': 'Формочки не выбраны. Вернитесь назад и выберите их в библиотеке.',
+      'plate.rotated': ' (повёрнута на 90°)',
+      'plate.cutters': 'Формочек',
+      'plate.size': 'Размер раскладки',
+
+      'slicing.note': 'Примечание к нарезке: {error}',
+      'slicer.noGcode': 'G-code не был создан.',
+      'slicer.slicer_not_found': 'PrusaSlicer недоступен на сервере.',
+      'slicer.slicer_timeout': 'Нарезка не уложилась в {seconds} с.',
+      'slicer.slicer_no_output': 'PrusaSlicer завершил работу, но не создал G-code.',
+      'slicer.slicer_failed': 'Ошибка PrusaSlicer: {error}',
+
+      'err.invalidImage': 'Загрузите корректное изображение (PNG, JPG, WebP)',
+      'err.noImage': 'Сначала загрузите изображение.',
+      'err.render3d': 'Не удалось показать 3D-превью: {error}',
+      'err.generateFailed': 'Не удалось создать 3D-модель.',
+      'err.requestFailed': 'Ошибка запроса (HTTP {status})',
+      'err.loadFile': 'Не удалось загрузить файл (HTTP {status})',
+      'err.loadStl': 'Не удалось загрузить STL (HTTP {status})',
+      'err.generateFirst': 'Сначала создайте формочку.',
+      'err.enterName': 'Введите название формочки.',
+      'err.downloadFailed': 'Ошибка скачивания (HTTP {status})',
+      'err.noOriginal': 'У этой формочки нет сохранённого исходного изображения.',
+      'err.loadOriginal': 'Не удалось загрузить исходное изображение (HTTP {status})',
+    },
+  };
+
+  function readCookie() {
+    const match = document.cookie.match(/(?:^|;\s*)lang=([a-z]{2})/);
+    return match && SUPPORTED.includes(match[1]) ? match[1] : null;
+  }
+
+  function detectLanguage() {
+    const saved = readCookie();
+    if (saved) return saved;
+    const fromServer = document.documentElement.lang;  // server resolves cookie / Accept-Language
+    if (SUPPORTED.includes(fromServer)) return fromServer;
+    for (const l of navigator.languages || [navigator.language || '']) {
+      const code = (l || '').slice(0, 2).toLowerCase();
+      if (SUPPORTED.includes(code)) return code;
+    }
+    return 'en';
+  }
+
+  let lang = detectLanguage();
+  document.documentElement.lang = lang;
+
+  function t(key, params = {}) {
+    let entry = (MESSAGES[lang] && MESSAGES[lang][key]) ?? MESSAGES.en[key];
+    if (entry === undefined) return key;
+    if (typeof entry === 'object') {
+      const form = new Intl.PluralRules(lang).select(Number(params.count) || 0);
+      entry = entry[form] ?? entry.other;
+    }
+    return entry.replace(/\{(\w+)\}/g, (m, name) => (params[name] !== undefined ? params[name] : m));
+  }
+
+  function applyTranslations(root = document) {
+    root.querySelectorAll('[data-i18n]').forEach(el => {
+      let params = {};
+      try { params = JSON.parse(el.dataset.i18nParams || '{}'); } catch (e) { /* ignore bad params */ }
+      el.textContent = t(el.dataset.i18n, params);
+    });
+    for (const attr of ['placeholder', 'aria-label', 'alt', 'title']) {
+      const dataAttr = 'data-i18n-' + attr;
+      root.querySelectorAll('[' + dataAttr + ']').forEach(el => el.setAttribute(attr, t(el.getAttribute(dataAttr))));
+    }
+  }
+
+  function setLanguage(next) {
+    if (!SUPPORTED.includes(next)) return;
+    lang = next;
+    document.documentElement.lang = lang;
+    const secure = location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${COOKIE}=${lang}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+    applyTranslations();
+    document.dispatchEvent(new CustomEvent('languagechange', { detail: { lang } }));
+  }
+
+  window.i18n = {
+    t,
+    applyTranslations,
+    setLanguage,
+    get lang() { return lang; },
+    supported: SUPPORTED,
+  };
+  window.t = t;
+})();

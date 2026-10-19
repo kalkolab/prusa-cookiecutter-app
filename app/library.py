@@ -30,6 +30,8 @@ from typing import Any, Dict, List, Optional
 import cv2
 import numpy as np
 
+from app.i18n import UserError
+
 logger = logging.getLogger("library")
 
 LIBRARY_DIR = Path(os.getenv("LIBRARY_DIR", str(Path(__file__).resolve().parent.parent / "data" / "library")))
@@ -87,9 +89,9 @@ def is_valid_id(item_id: str) -> bool:
 def clean_name(name: str) -> str:
     name = re.sub(r"\s+", " ", (name or "")).strip()
     if not name:
-        raise ValueError("Name must not be empty.")
+        raise UserError("name_empty")
     if len(name) > MAX_NAME_LENGTH:
-        raise ValueError(f"Name must be at most {MAX_NAME_LENGTH} characters.")
+        raise UserError("name_too_long", max=MAX_NAME_LENGTH)
     return name
 
 
@@ -112,7 +114,7 @@ def save_from_job(job_dir: Path, name: str, owner: str, source_id: Optional[str]
 
     job_meta_path = job_dir / JOB_META_FILENAME
     if not job_meta_path.exists():
-        raise FileNotFoundError("Generation job not found or expired. Generate the cutter again.")
+        raise UserError("job_expired", status_code=404)
     job_meta = json.loads(job_meta_path.read_text(encoding="utf-8"))
 
     item_id = uuid.uuid4().hex
@@ -125,7 +127,7 @@ def save_from_job(job_dir: Path, name: str, owner: str, source_id: Optional[str]
                 shutil.copyfile(job_dir / filename, item_dir / filename)
                 files[key] = filename
         if "stl" not in files:
-            raise FileNotFoundError("Generated STL is missing. Generate the cutter again.")
+            raise UserError("job_stl_missing", status_code=404)
 
         meta = {
             **job_meta,

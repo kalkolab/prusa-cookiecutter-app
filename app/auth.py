@@ -5,10 +5,12 @@ Google OAuth 2.0 Token Verification & Email Allowlist Authentication Module.
 import os
 import logging
 from typing import Optional, Dict, Any, List
-from fastapi import HTTPException, Security, status, Depends
+from fastapi import Security, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from google.oauth2 import id_token
 from google.auth.transport import requests
+
+from app.i18n import UserError
 
 logger = logging.getLogger("auth")
 
@@ -47,11 +49,7 @@ def verify_user_token(credentials: Optional[HTTPAuthorizationCredentials] = Depe
         }
 
     if not credentials or not credentials.credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required. Please sign in with Google.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise UserError("auth_required", status_code=status.HTTP_401_UNAUTHORIZED, headers={"WWW-Authenticate": "Bearer"})
 
     token_str = credentials.credentials
     try:
@@ -63,24 +61,15 @@ def verify_user_token(credentials: Optional[HTTPAuthorizationCredentials] = Depe
 
         email = id_info.get("email", "").strip().lower()
         if not email:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token does not contain a verified email address."
-            )
+            raise UserError("email_unverified", status_code=status.HTTP_401_UNAUTHORIZED)
 
         if not id_info.get("email_verified", False):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token does not contain a verified email address."
-            )
+            raise UserError("email_unverified", status_code=status.HTTP_401_UNAUTHORIZED)
 
         # Check if email is in the allowlist (an empty allowlist admits nobody)
         if email not in ALLOWED_EMAILS:
             logger.warning(f"Unauthorized access attempt by: {email}")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Access denied: Account '{email}' is not on the authorized user list."
-            )
+            raise UserError("access_denied", status_code=status.HTTP_403_FORBIDDEN, email=email)
 
         return {
             "email": email,
@@ -90,18 +79,11 @@ def verify_user_token(credentials: Optional[HTTPAuthorizationCredentials] = Depe
             "auth_disabled": False,
         }
 
-    except HTTPException:
+    except UserError:
         raise
     except ValueError as e:
         logger.warning(f"Invalid Google ID Token: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Google ID Token.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise UserError("invalid_token", status_code=status.HTTP_401_UNAUTHORIZED, headers={"WWW-Authenticate": "Bearer"})
     except Exception as e:
         logger.error(f"Authentication error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Authentication service unavailable."
-        )
+        raise UserError("auth_unavailable", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

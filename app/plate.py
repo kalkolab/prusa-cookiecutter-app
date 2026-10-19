@@ -14,6 +14,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import trimesh
 
+from app.i18n import UserError
+
 PART_SPACING_MM = 5.0
 MAX_COPIES = 30
 
@@ -121,9 +123,9 @@ def build_plate(
             label = part["name"] if part["quantity"] == 1 else f"{part['name']} #{n + 1}"
             copies.append((label, mesh))
     if not copies:
-        raise ValueError("Select at least one cutter.")
+        raise UserError("plate_empty")
     if len(copies) > MAX_COPIES:
-        raise ValueError(f"A plate can hold at most {MAX_COPIES} cutters (got {len(copies)}).")
+        raise UserError("plate_too_many", max=MAX_COPIES, count=len(copies))
 
     sizes = [(float(mesh.extents[0]), float(mesh.extents[1])) for _, mesh in copies]
     usable_w, usable_h = bed_x - 2 * margin, bed_y - 2 * margin
@@ -131,11 +133,7 @@ def build_plate(
         placements = arrange_footprints(sizes, usable_w, usable_h)
     except ValueError:
         area = sum(w * h for w, h in sizes)
-        raise ValueError(
-            f"These {len(copies)} cutters don't fit on the bed together "
-            f"({area / (usable_w * usable_h):.0%} of the usable area before spacing). "
-            "Remove some cutters or lower the quantities."
-        )
+        raise UserError("plate_no_fit", count=len(copies), percent=f"{area / (usable_w * usable_h):.0%}")
 
     # Center the packed block on the bed
     footprints = []
