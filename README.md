@@ -18,6 +18,10 @@ A self-contained web application that transforms 2D images (JPEG, PNG, WebP) int
   - Exact $250 \times 210\text{ mm}$ Prusa MK3S/MK4 build plate grid with 10 mm squares.
   - Live millimeter bounding box overlays ($X \times Y \times Z$).
   - 360° orbit controls and camera presets (Perspective / Top View).
+- **Cutter Library:**
+  - Save any generated cutter with a name: STL, G-code, original image, detected mask and every parameter are stored together.
+  - Browse, search and filter the library, preview a saved cutter on the 3D bed, download its files, or load its image and settings back into the editor.
+  - Files live in a plain directory (`LIBRARY_DIR`), backed by a Google Cloud Storage bucket on Cloud Run (see [Persistent Library Storage](#5-persistent-library-storage-cloud-storage-bucket)).
 - **Google OAuth 2.0 Allowlist Protection:**
   - Secure access restricted to you and your friends' Google accounts.
   - Graceful dev mode fallback when unconfigured.
@@ -33,8 +37,9 @@ To run locally with Docker (includes PrusaSlicer and graphics libraries pre-inst
 # Build the Docker image
 docker build -t prusa-cookiecutter-studio .
 
-# Run the container
+# Run the container (the named volume keeps the cutter library between restarts)
 docker run -p 8080:8080 \
+  -v cookie-library:/data/library \
   -e GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com" \
   -e ALLOWED_EMAILS="you@gmail.com,friend@gmail.com" \
   prusa-cookiecutter-studio
@@ -115,6 +120,51 @@ gcloud run deploy cookie-cutter-studio \
 
 ---
 
+### 5. Persistent Library Storage (Cloud Storage bucket)
+
+Cloud Run's filesystem is in-memory and wiped whenever an instance stops, so saved cutters need external storage. The app writes the library to `LIBRARY_DIR` (`/data/library` in the container); on Cloud Run, mount a **Cloud Storage bucket** at that path. No code or SDK changes are needed — the bucket appears as a normal directory.
+
+The quickest way is the bundled script — run it from [Cloud Shell](https://shell.cloud.google.com) (or anywhere `gcloud` is logged in) after the service has been deployed once:
+
+```bash
+./scripts/setup_library_bucket.sh   # creates gs://prusa-cookiecutter-app-library and mounts it
+```
+
+Or do the same steps by hand:
+
+```bash
+# Create the bucket in a free-tier region (soft delete off: retained deleted objects are billed)
+gcloud storage buckets create gs://prusa-cookiecutter-app-library \
+  --project=prusa-cookiecutter-app \
+  --location=us-central1 \
+  --default-storage-class=STANDARD \
+  --uniform-bucket-level-access \
+  --public-access-prevention \
+  --soft-delete-duration=0
+
+# Let the Cloud Run service account read and write objects
+# (default: PROJECT_NUMBER-compute@developer.gserviceaccount.com)
+gcloud storage buckets add-iam-policy-binding gs://prusa-cookiecutter-app-library \
+  --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+  --role="roles/storage.objectUser"
+
+# Mount it into the service (volume mounts need the gen2 execution environment)
+gcloud run services update cookie-cutter-studio \
+  --project=prusa-cookiecutter-app \
+  --region=europe-west1 \
+  --execution-environment=gen2 \
+  --add-volume=name=library,type=cloud-storage,bucket=prusa-cookiecutter-app-library \
+  --add-volume-mount=volume=library,mount-path=/data/library
+```
+
+**Cost: $0.** The bucket lives in `us-central1`, which is covered by the Cloud Storage Always Free tier (5 GB Standard storage, 5,000 Class A and 50,000 Class B operations, 100 GB egress per month). A saved cutter is roughly 1–5 MB (STL + G-code + original image), so hundreds of cutters fit. The service stays in `europe-west1`; the cross-region hop adds a little latency to library calls but the traffic falls within the free egress. Soft delete is disabled because retained deleted objects would be billed.
+
+**Layout:** each cutter is a folder `<id>/` containing `meta.json` (name, owner, parameters, dimensions, slicing stats), the STL, the G-code, `original.<ext>`, `mask.png` and `thumb.jpg`. You can browse or back it up directly with `gcloud storage ls gs://prusa-cookiecutter-app-library/`.
+
+The library is shared by all allowed users; each entry records who saved it, and only that person can delete it.
+
+---
+
 ## Project Structure
 
 ```
@@ -123,9 +173,12 @@ prusa-cookiecutter-app/
 │   ├── auth.py              # Google ID token verification & allowlist check
 │   ├── geometry.py          # OpenCV image processing & 3-tier Shapely/Trimesh extrusion
 │   ├── slicer.py            # PrusaSlicer CLI execution & G-code metadata parser
+│   ├── library.py           # Persistent cutter library (files + metadata in LIBRARY_DIR)
 │   ├── main.py              # FastAPI endpoints & background cleanup
 │   └── templates/
 │       └── index.html       # Single-page UI with Three.js 3D viewport & Prusa bed
+├── scripts/
+│   └── setup_library_bucket.sh  # Creates & mounts the library bucket on Cloud Run
 ├── Dockerfile               # Debian container with PrusaSlicer & runtime libraries
 ├── requirements.txt         # Python dependencies
 ├── slicer_config.ini        # MK3S+/MK4 calibrated slicing profile
