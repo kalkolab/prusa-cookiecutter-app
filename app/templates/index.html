@@ -212,6 +212,36 @@
           </div>
           <input type="range" id="simplifyInput" min="0.05" max="0.30" step="0.02" value="0.12" class="w-full h-2 bg-slate-700 rounded-lg cursor-pointer">
         </div>
+
+        <!-- Inner Cutouts (e.g. the hole in a 9, 0, A or doughnut) -->
+        <div class="border-t border-slate-700/60 pt-3">
+          <label class="flex items-center space-x-2 cursor-pointer text-xs text-slate-300">
+            <input type="checkbox" id="innerCutoutsInput" checked class="rounded bg-slate-800 border-slate-700 text-prusa-orange w-4 h-4">
+            <span data-i18n="inner.enable">Cut inner holes (e.g. the circle in a 9)</span>
+          </label>
+          <p class="text-[10px] text-slate-500 mt-0.5" data-i18n="inner.hint">Enclosed shapes get their own blade, joined to the outer rim by a flat handle bar.</p>
+          <div id="innerHandleControls" class="mt-2.5 space-y-2.5">
+            <div>
+              <label for="barTypeSelect" class="block text-xs text-slate-300 mb-1" data-i18n="inner.barType">Inner handle</label>
+              <div class="relative">
+                <select id="barTypeSelect" class="w-full bg-slate-800/90 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-prusa focus:outline-none appearance-none cursor-pointer">
+                  <option value="horizontal" selected data-i18n="inner.bar.horizontal">Horizontal bar</option>
+                  <option value="vertical" data-i18n="inner.bar.vertical">Vertical bar</option>
+                  <option value="cross" data-i18n="inner.bar.cross">Cross (horizontal + vertical)</option>
+                  <option value="bridge" data-i18n="inner.bar.bridge">Short bridge to nearest edge</option>
+                </select>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-2.5 pointer-events-none"></i>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-300" data-i18n="inner.barWidth">Handle Bar Width</span>
+                <span id="barWidthVal" class="font-bold text-prusa-orange font-mono">6.0 mm</span>
+              </div>
+              <input type="range" id="barWidthInput" min="3" max="15" step="0.5" value="6.0" class="w-full h-2 bg-slate-700 rounded-lg cursor-pointer">
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- Generate Action Button -->
@@ -528,6 +558,17 @@
     const simplifyInput = document.getElementById('simplifyInput');
     const simplifyVal = document.getElementById('simplifyVal');
     const invertInput = document.getElementById('invertInput');
+    const innerCutoutsInput = document.getElementById('innerCutoutsInput');
+    const barTypeSelect = document.getElementById('barTypeSelect');
+    const barWidthInput = document.getElementById('barWidthInput');
+    const barWidthVal = document.getElementById('barWidthVal');
+    const innerHandleControls = document.getElementById('innerHandleControls');
+    function onInnerCutoutsChange() {
+      innerHandleControls.classList.toggle('hidden', !innerCutoutsInput.checked);
+    }
+    innerCutoutsInput.addEventListener('change', onInnerCutoutsChange);
+    barWidthInput.addEventListener('input', (e) => barWidthVal.innerText = mm(e.target.value));
+    barWidthInput.dispatchEvent(new Event('input'));
 
     const resultsSection = document.getElementById('resultsSection');
     const maskSection = document.getElementById('maskSection');
@@ -891,6 +932,9 @@
       formData.append('simplify_tol', simplifyInput.value);
       formData.append('invert', invertInput.checked);
       formData.append('stamp_mode', currentMode === 'stamp');
+      formData.append('enable_inner_cutouts', innerCutoutsInput.checked);
+      formData.append('handle_bar_type', barTypeSelect.value);
+      formData.append('handle_bar_width', barWidthInput.value);
       formData.append('printer_model', printerSelect.value);
       formData.append('filament', filamentSelect.value);
 
@@ -1141,6 +1185,10 @@
         [t('param.bladeHeight'), mm(p.blade_height)],
         [t('param.handleRim'), mm(p.handle_width)],
         [t('param.smoothing'), mm(p.simplify_tol)],
+        ...(s.inner_cutouts_count ? [
+          [t('param.innerCutouts'), String(s.inner_cutouts_count)],
+          [t('param.innerHandle'), s.handle_bar_type === 'none' ? t('inner.bar.none') : `${t('inner.bar.' + s.handle_bar_type)} · ${mm(s.handle_bar_width_mm)}`],
+        ] : []),
         [t('param.inverted'), t(p.invert ? 'common.yes' : 'common.no')],
         [t('param.printTime'), item.slicing?.estimated_print_time || t('common.na')],
         [t('param.filament'), item.slicing?.filament_used_meters ? `${item.slicing.filament_used_meters} ${t('unit.m')}` : t('common.na')],
@@ -1451,6 +1499,10 @@
         setSlider(bladeHeightInput, bladeHeightVal, p.blade_height, 'mm');
         setSlider(handleWidthInput, handleWidthVal, p.handle_width, 'mm');
         setSlider(simplifyInput, simplifyVal, p.simplify_tol, 'mm');
+        setSlider(barWidthInput, barWidthVal, p.handle_bar_width, 'mm');
+        if (p.handle_bar_type) barTypeSelect.value = p.handle_bar_type;
+        if (p.enable_inner_cutouts !== undefined) innerCutoutsInput.checked = !!p.enable_inner_cutouts;
+        onInnerCutoutsChange();
         invertInput.checked = !!p.invert;
         if (p.filament) { filamentSelect.value = p.filament; onFilamentChange(); }
         setMode(p.stamp_mode ? 'stamp' : 'cutter');
@@ -1578,7 +1630,7 @@
     // Re-render everything built in code when the language changes; static markup is handled by applyTranslations()
     document.addEventListener('languagechange', () => {
       document.getElementById('langSelect').value = i18n.lang;
-      for (const input of [targetSizeInput, bladeHeightInput, handleWidthInput, simplifyInput]) {
+      for (const input of [targetSizeInput, bladeHeightInput, handleWidthInput, simplifyInput, barWidthInput]) {
         input.dispatchEvent(new Event('input'));
       }
       if (lastGenerateData) renderGenerateTexts(lastGenerateData);

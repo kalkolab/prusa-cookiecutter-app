@@ -111,6 +111,7 @@ PARAM_LIMITS = {
     "blade_height": (5.0, 30.0),
     "handle_width": (1.0, 10.0),
     "simplify_tol": (0.01, 1.0),
+    "handle_bar_width": (2.0, 20.0),
 }
 
 # Clearance kept around the part for the skirt (skirt_distance + skirt line)
@@ -140,6 +141,9 @@ def generate_model(
     simplify_tol: float = Form(0.12),
     invert: bool = Form(False),
     stamp_mode: bool = Form(False),
+    enable_inner_cutouts: bool = Form(True),
+    handle_bar_type: str = Form("horizontal"),
+    handle_bar_width: float = Form(6.0),
     printer_model: str = Form("mk4s"),
     filament: str = Form(DEFAULT_FILAMENT),
     user_info: dict = Depends(verify_user_token),
@@ -147,6 +151,7 @@ def generate_model(
     """
     1. Preprocesses image (horizontal mirror for correct imprint).
     2. Extracts contours, normalizes, scales, and extrudes 3-tier cutter & optional stamp.
+       Supports inner cutout edges (e.g. circle in 9) with connecting handle bar at Z=0..2mm.
     3. Exports STL and runs headless PrusaSlicer for the selected printer model (MK4S, MK4, MK3S+, MINI+).
 
     Declared as a sync handler so FastAPI runs it in a worker thread: the geometry
@@ -158,7 +163,12 @@ def generate_model(
     validate_param("blade_height", blade_height)
     validate_param("handle_width", handle_width)
     validate_param("simplify_tol", simplify_tol)
+    validate_param("handle_bar_width", handle_bar_width)
     filament = validate_filament(filament)
+
+    clean_bar_type = (handle_bar_type or "horizontal").lower().strip()
+    if clean_bar_type not in ("horizontal", "vertical", "cross", "bridge", "none"):
+        clean_bar_type = "horizontal"
 
     if not image.content_type.startswith("image/"):
         raise UserError("not_image")
@@ -182,6 +192,9 @@ def generate_model(
             mode=mode_str,
             invert=invert,
             simplify_tol=simplify_tol,
+            enable_inner_cutouts=enable_inner_cutouts,
+            handle_bar_type=clean_bar_type,
+            handle_bar_width_mm=handle_bar_width,
         )
 
         spec = PRINTER_SPECS[clean_printer]
@@ -242,6 +255,9 @@ def generate_model(
                 "simplify_tol": simplify_tol,
                 "invert": invert,
                 "stamp_mode": stamp_mode,
+                "enable_inner_cutouts": enable_inner_cutouts,
+                "handle_bar_type": clean_bar_type,
+                "handle_bar_width": handle_bar_width,
                 "printer_model": clean_printer,
                 "filament": filament,
             },
