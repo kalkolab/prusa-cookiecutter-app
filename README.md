@@ -13,6 +13,11 @@ A self-contained web application that transforms 2D images (JPEG, PNG, WebP) int
     - **Support Collar:** 1.6 mm wide × 4.0 mm high.
     - **Cutting Blade:** 0.86 mm wide (2 perimeters for 0.4 mm nozzle) × 12.0 mm total height.
   - **Stamp Mode:** Adds a 2.0 mm solid backing plate + recessed interior imprint ribs ($Z = \text{blade\_height} - 2.5\text{ mm}$) to emboss details into dough without cutting through.
+  - **Inner Cutouts:** Enclosed shapes inside the outline (the circle in a 9, the hole of an O, A or doughnut) get their own full-height cutting blade. A flat handle bar on the rim layer ($Z = 0$–$2$ mm, well above the dough) joins each inner blade to the outer rim so the cutter prints and works as one piece.
+    - Handle styles: horizontal bar, vertical bar, cross, or a short bridge to the nearest outer edge; bar width 3–15 mm (default 6 mm).
+    - Works with filled silhouettes (dark shape with light holes) and with outline drawings; the inner edge of a drawn outline stroke is ignored so it does not produce a double blade.
+    - On by default in Cutter mode; untick "Cut inner holes" for an outline-only cutter.
+  - **Dark backgrounds:** Light-on-dark drawings are detected automatically (no need to tick "Invert Colors").
 - **Headless Slicing with official Prusa profiles:** Runs the `prusa-slicer` 2.9 CLI with Prusa Research's own printer, print and filament presets (e.g. *Original Prusa MK4S HF0.4 nozzle*, *0.20mm SPEED @MK4S HF0.4*, *Generic PLA @MK4S HF0.4*). The G-code therefore has Prusa's start sequence: printer/nozzle checks, probing with a cool nozzle, mesh bed levelling of the print area, purge line and the filament's temperatures.
   - Filament choice: **PLA** or **PETG** (PETG on a smooth PEI sheet needs a release agent such as glue stick).
   - Profile names per printer live in `PRINTER_SPECS` in `app/slicer.py`.

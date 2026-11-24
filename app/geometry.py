@@ -65,6 +65,14 @@ def preprocess_image(
     t_type = cv2.THRESH_BINARY if invert else cv2.THRESH_BINARY_INV
     _, binary = cv2.threshold(blurred, 0, 255, t_type + cv2.THRESH_OTSU)
 
+    # If the user did not explicitly request invert, but the thresholded border
+    # is predominantly white (> 50%), the image likely had a dark background
+    # that was inverted into foreground. Auto-invert to keep the shape as foreground.
+    border = np.zeros_like(binary, dtype=bool)
+    border[0, :] = border[-1, :] = border[:, 0] = border[:, -1] = True
+    if not invert and np.mean(binary[border] == 255) > 0.5:
+        binary = cv2.bitwise_not(binary)
+
     # Morphological closing to seal jagged JPEG artifacts
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     closed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
@@ -108,16 +116,21 @@ def image_to_cookie_cutter(
     mode: str = "outline",
     invert: bool = False,
     simplify_tol: float = 0.12,
+    enable_inner_cutouts: bool = True,
+    handle_bar_type: str = "horizontal",
+    handle_bar_width_mm: float = 6.0,
 ) -> Tuple[trimesh.Trimesh, Dict[str, Any], str]:
     """
     Full pipeline: image bytes -> 3D cookie cutter mesh.
+    Supports inner cutout edges (e.g. circle inside '9' or doughnut hole) with
+    connecting handle bar at Z=0..2mm to hold the inner pieces securely.
     Returns (mesh, stats_dict, preview_b64_png).
     """
     # 1. Preprocess
     _, binary, preview_b64 = preprocess_image(image_bytes, invert=invert)
 
-    # 2. Extract contours (RETR_LIST: simple flat list, most robust)
-    contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    # 2. Extract contours with hierarchy
+    contours, _ = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     raw_polys = []
     for cnt in contours:
@@ -135,6 +148,22 @@ def image_to_cookie_cutter(
     # Sort polygons largest to smallest; largest is outer cookie silhouette
     raw_polys.sort(key=lambda p: p.area, reverse=True)
     outer_silhouette = Polygon(raw_polys[0].exterior).buffer(0)
+
+    # Detect inner cutout holes contained within the outer silhouette
+    inner_holes = []
+    if enable_inner_cutouts and len(raw_polys) > 1:
+        for p in raw_polys[1:]:
+            if outer_silhouette.contains(p):
+                ratio = p.area / outer_silhouette.area
+                # Reject inner boundary of thick stroke (where area is > 70% of outer)
+                if ratio < 0.70:
+                    is_sub = False
+                    for h in inner_holes:
+                        if h.contains(p) and (p.area / h.area > 0.70):
+                            is_sub = True
+                            break
+                    if not is_sub:
+                        inner_holes.append(Polygon(p.exterior).buffer(0))
 
     # 3. Normalize & scale so the longest dimension equals target_size_mm
     minx, miny, maxx, maxy = outer_silhouette.bounds
@@ -154,16 +183,64 @@ def image_to_cookie_cutter(
         return scaled.simplify(simplify_tol, preserve_topology=True).buffer(0)
 
     outer_2d = transform_poly(outer_silhouette)
+    inner_2ds = [transform_poly(h) for h in inner_holes]
 
-    # 4. Build 3-Tiered Outer Cutter
-    blade_shell = outer_2d.buffer(blade_thick_mm, join_style=1).difference(outer_2d)
-    collar_shell = outer_2d.buffer(1.6, join_style=1).difference(outer_2d)
-    handle_shell = outer_2d.buffer(handle_width_mm, join_style=1).difference(outer_2d)
+    # 4. Build 3-Tiered Cutter Geometry
+    # Outer shells (expand outward from outer_2d)
+    outer_blade = outer_2d.buffer(blade_thick_mm, join_style=1).difference(outer_2d)
+    outer_collar = outer_2d.buffer(1.6, join_style=1).difference(outer_2d)
+    outer_handle = outer_2d.buffer(handle_width_mm, join_style=1).difference(outer_2d)
+
+    inner_blades = []
+    inner_collars = []
+    inner_handles = []
+    handle_bars = []
+
+    # In cutter mode, build inner cutting blades + connecting handle bar
+    if mode != "stamp" and inner_2ds:
+        for in_p in inner_2ds:
+            # Inner cutting blade expands inward into the hole (preserving the dough boundary)
+            b = in_p.difference(in_p.buffer(-blade_thick_mm, join_style=1))
+            c = in_p.difference(in_p.buffer(-1.6, join_style=1))
+            h = in_p.difference(in_p.buffer(-handle_width_mm, join_style=1))
+            if not b.is_empty:
+                inner_blades.append(b)
+            if not c.is_empty:
+                inner_collars.append(c)
+            if not h.is_empty:
+                inner_handles.append(h)
+
+        # Handle connecting bar at Z=0..2mm to hold the inner circle
+        outer_rim_zone = outer_2d.buffer(handle_width_mm)
+        ob = outer_2d.bounds
+        from shapely.geometry import box, LineString
+        from shapely.ops import nearest_points
+
+        for in_p in inner_2ds:
+            c_x, c_y = in_p.centroid.x, in_p.centroid.y
+            if handle_bar_type in ("horizontal", "cross"):
+                hbar = box(ob[0] - 5, c_y - handle_bar_width_mm / 2.0, ob[2] + 5, c_y + handle_bar_width_mm / 2.0).intersection(outer_rim_zone)
+                if not hbar.is_empty:
+                    handle_bars.append(hbar)
+            if handle_bar_type in ("vertical", "cross"):
+                vbar = box(c_x - handle_bar_width_mm / 2.0, ob[1] - 5, c_x + handle_bar_width_mm / 2.0, ob[3] + 5).intersection(outer_rim_zone)
+                if not vbar.is_empty:
+                    handle_bars.append(vbar)
+            if handle_bar_type == "bridge":
+                p_in, p_out = nearest_points(in_p, outer_2d.boundary)
+                bridge_line = LineString([p_in, p_out]).buffer(handle_bar_width_mm / 2.0)
+                bridge_geom = bridge_line.intersection(outer_rim_zone)
+                if not bridge_geom.is_empty:
+                    handle_bars.append(bridge_geom)
+
+    blade_layer = unary_union([outer_blade] + inner_blades)
+    collar_layer = unary_union([outer_collar] + inner_collars)
+    handle_layer = unary_union([outer_handle] + inner_handles + handle_bars)
 
     meshes = []
-    meshes.extend(extrude_shapely_geom(blade_shell, height=blade_height_mm))
-    meshes.extend(extrude_shapely_geom(collar_shell, height=4.0))
-    meshes.extend(extrude_shapely_geom(handle_shell, height=2.0))
+    meshes.extend(extrude_shapely_geom(blade_layer, height=blade_height_mm))
+    meshes.extend(extrude_shapely_geom(collar_layer, height=4.0))
+    meshes.extend(extrude_shapely_geom(handle_layer, height=2.0))
 
     # 5. Stamp mode: fuse a solid backing plate + inner detail embossers
     if mode == "stamp":
@@ -193,6 +270,9 @@ def image_to_cookie_cutter(
         "triangle_count": int(len(combined_mesh.faces)),
         "inner_width_mm": round(ob[2] - ob[0], 2),
         "inner_height_mm": round(ob[3] - ob[1], 2),
+        "inner_cutouts_count": len(inner_2ds),
+        "handle_bar_type": handle_bar_type if inner_2ds else "none",
+        "handle_bar_width_mm": handle_bar_width_mm if inner_2ds else 0.0,
     }
 
     return combined_mesh, stats, preview_b64

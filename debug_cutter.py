@@ -25,10 +25,14 @@ def debug_image(
     stamp_mode: bool = False,
     invert: bool = False,
     printer_model: str = "mk4s",
+    bar_type: str = "horizontal",
+    bar_width: float = 6.0,
+    enable_inner: bool = True,
 ):
     print(f"\n=======================================================")
     print(f" DEBUGGING IMAGE: {image_path}")
     print(f" Target size: {target_size_mm} mm | Stamp Mode: {stamp_mode} | Invert: {invert} | Printer: {printer_model}")
+    print(f" Inner cutouts: {enable_inner} | Handle bar: {bar_type} ({bar_width} mm)")
     print(f"=======================================================\n")
 
     if not os.path.exists(image_path):
@@ -50,7 +54,7 @@ def debug_image(
         white_pixels = np.count_nonzero(mask)
         total_pixels = mask.size
         print(f"  → Mask foreground coverage: {white_pixels}/{total_pixels} ({white_pixels/total_pixels*100:.1f}%)")
-        contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         print(f"  → Raw contours found: {len(contours)}")
     except Exception as e:
         print(f"❌ Step 1 Failed: {e}")
@@ -64,12 +68,16 @@ def debug_image(
             target_size_mm=target_size_mm,
             mode="stamp" if stamp_mode else "outline",
             invert=invert,
+            enable_inner_cutouts=enable_inner,
+            handle_bar_type=bar_type,
+            handle_bar_width_mm=bar_width,
         )
         stl_output = "debug_output.stl"
         mesh.export(stl_output)
         print(f"  ✓ Mesh generated successfully: {stl_output}")
         print(f"    - Inner Cut Size: {stats['inner_width_mm']} × {stats['inner_height_mm']} mm")
         print(f"    - Print Footprint: {stats['print_width_mm']} × {stats['print_length_mm']} × {stats['print_height_mm']} mm")
+        print(f"    - Inner Cutouts: {stats.get('inner_cutouts_count', 0)} (Handle: {stats.get('handle_bar_type')}, width: {stats.get('handle_bar_width_mm')} mm)")
         print(f"    - Triangles: {stats['triangle_count']}")
         print(f"    - Is Watertight (Manifold): {stats['is_watertight']}")
     except Exception as e:
@@ -95,7 +103,7 @@ def debug_image(
 
     print("\n=======================================================")
     print(" ✅ DIAGNOSTIC TEST COMPLETE")
-    print("=======================================================\n")
+    print("=======================================================")
     return True
 
 
@@ -106,7 +114,19 @@ if __name__ == "__main__":
     parser.add_argument("--stamp", action="store_true", help="Enable stamp mode")
     parser.add_argument("--invert", action="store_true", help="Invert image colors")
     parser.add_argument("--printer", default="mk4s", help="Printer model: mk4s, mk4, mk3s, mini (default: mk4s)")
+    parser.add_argument("--bar-type", default="horizontal", choices=["horizontal", "vertical", "cross", "bridge", "none"], help="Inner handle bar type (default: horizontal)")
+    parser.add_argument("--bar-width", type=float, default=6.0, help="Handle bar width in mm (default: 6.0)")
+    parser.add_argument("--no-inner", action="store_true", help="Disable inner cutouts")
     args = parser.parse_args()
 
-    ok = debug_image(args.image, args.target_size, args.stamp, args.invert, args.printer)
+    ok = debug_image(
+        args.image,
+        args.target_size,
+        args.stamp,
+        args.invert,
+        args.printer,
+        bar_type=args.bar_type,
+        bar_width=args.bar_width,
+        enable_inner=not args.no_inner,
+    )
     sys.exit(0 if ok else 1)
