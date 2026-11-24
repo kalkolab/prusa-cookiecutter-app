@@ -42,5 +42,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD python3 -c "import os, urllib.request; urllib.request.urlopen('http://localhost:' + str(os.environ.get('PORT', 8080)) + '/api/health')" || exit 1
 
-# Start Uvicorn server
-CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}
+# Start Uvicorn server (JSON form; sh -c expands $PORT, exec makes uvicorn PID 1 so it receives SIGTERM)
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
