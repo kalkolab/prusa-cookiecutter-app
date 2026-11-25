@@ -1419,10 +1419,10 @@
       }
       const projectBtn = document.getElementById('plateProjectBtn');
       projectBtn.href = data.downloads.project_url;
-      projectBtn.download = 'cookie_cutter_plate.3mf';
+      projectBtn.download = data.downloads.project_filename || 'cookie_cutter_plate.3mf';
       const stlBtn = document.getElementById('plateStlBtn');
       stlBtn.href = data.downloads.stl_url;
-      stlBtn.download = 'cookie_cutter_plate.stl';
+      stlBtn.download = data.downloads.stl_filename || 'cookie_cutter_plate.stl';
     }
 
     async function viewPlate3D() {

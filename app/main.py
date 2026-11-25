@@ -11,6 +11,7 @@ import shutil
 import logging
 from pathlib import Path
 from typing import List, Optional
+from urllib.parse import quote
 
 from fastapi import (
     FastAPI,
@@ -469,9 +470,16 @@ def build_print_plate(req: PlateRequest, background_tasks: BackgroundTasks, user
         logger.exception("Failed to build print plate")
         raise UserError("plate_failed", status_code=500, error=str(e))
 
-    gcode_filename = f"plate_{printer}.gcode"
+    # Name the downloads after the cutters on the plate, e.g. "nine-star_x2_mk4s.gcode"
+    base = plate.plate_basename(parts)
+    stl_filename = f"{base}.stl"
+    project_filename = f"{base}.3mf"
+    gcode_filename = f"{base}_{printer}.gcode"
+    (job_dir / "plate.stl").rename(job_dir / stl_filename)
+    (job_dir / "plate.3mf").rename(job_dir / project_filename)
+
     slicing_result = slice_stl_to_gcode(
-        stl_path=str(job_dir / "plate.stl"),
+        stl_path=str(job_dir / stl_filename),
         output_gcode_path=str(job_dir / gcode_filename),
         printer_model=printer,
         filament=filament,
@@ -486,9 +494,11 @@ def build_print_plate(req: PlateRequest, background_tasks: BackgroundTasks, user
         "filament": filament,
         "slicing": slicing_result,
         "downloads": {
-            "stl_url": f"/api/download/{job_id}/plate.stl",
-            "project_url": f"/api/download/{job_id}/plate.3mf",
-            "gcode_url": f"/api/download/{job_id}/{gcode_filename}" if slicing_result.get("gcode_generated") else None,
+            "stl_url": f"/api/download/{job_id}/{quote(stl_filename)}",
+            "stl_filename": stl_filename,
+            "project_url": f"/api/download/{job_id}/{quote(project_filename)}",
+            "project_filename": project_filename,
+            "gcode_url": f"/api/download/{job_id}/{quote(gcode_filename)}" if slicing_result.get("gcode_generated") else None,
             "gcode_filename": gcode_filename,
         },
     }

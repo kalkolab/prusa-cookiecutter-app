@@ -8,6 +8,7 @@ project with one named object per cutter for opening in PrusaSlicer.
 """
 
 import math
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -18,12 +19,45 @@ from app.i18n import UserError
 
 PART_SPACING_MM = 5.0
 MAX_COPIES = 30
+# Longest download file stem built from cutter names (well under the 255-byte filesystem limit)
+MAX_BASENAME_CHARS = 80
 
 # (x, y, rotated) of each rectangle's lower-left corner within the usable area
 Placement = Tuple[float, float, bool]
 
 
 Rect = Tuple[float, float, float, float]  # x, y, width, height
+
+
+def _name_slug(name: str) -> str:
+    """Filename-safe form of a cutter name. Keeps any letters/digits (Cyrillic, accents) so
+    RU/UK/FR names stay readable; everything else becomes '_'."""
+    return re.sub(r"[\W_]+", "_", name or "").strip("_").lower()[:40]
+
+
+def plate_basename(parts: List[Dict[str, Any]]) -> str:
+    """
+    Download file stem for a plate, combining the cutters' names in plate order, e.g.
+    "nine-star_x2-heart". Names repeated across entries are merged; a quantity above 1 adds
+    "_xN". Too many names for MAX_BASENAME_CHARS end with "_and_N_more".
+    """
+    counts: Dict[str, int] = {}
+    for part in parts:
+        slug = _name_slug(part["name"])
+        if slug:
+            counts[slug] = counts.get(slug, 0) + int(part.get("quantity", 1))
+    if not counts:
+        return "plate"
+
+    tokens = [slug if qty == 1 else f"{slug}_x{qty}" for slug, qty in counts.items()]
+    base = tokens[0][:MAX_BASENAME_CHARS]
+    for i, token in enumerate(tokens[1:], start=1):
+        remaining = len(tokens) - i
+        suffix = f"_and_{remaining - 1}_more" if remaining > 1 else ""
+        if len(base) + 1 + len(token) + len(suffix) > MAX_BASENAME_CHARS:
+            return f"{base}_and_{remaining}_more"
+        base = f"{base}-{token}"
+    return base
 
 
 def _maxrects_pack(
