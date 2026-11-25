@@ -34,6 +34,7 @@ A self-contained web application that transforms 2D images (JPEG, PNG, WebP) int
   - Select several cutters from the library (with a quantity for each) and print them in one go.
   - Footprints are packed onto the chosen printer's bed with MaxRects (5 mm gaps, 90° rotation when it helps) so nothing overlaps; a top-view layout preview is shown.
   - Downloads: sliced G-code, a PrusaSlicer project (`.3mf`, one named object per cutter) and a combined STL; the plate can also be viewed on the 3D bed.
+  - Download files are named after the cutters on the plate, e.g. `nine-star_x2-heart_mk4s.gcode` (long lists end with `_and_N_more`).
 - **Languages: English, French, Russian, Ukrainian:**
   - EN / FR / RU / UA drop-down in the header; the choice is saved in a `lang` cookie for a year. Without a cookie the browser language is used.
   - UI strings live in `app/static/i18n.js`; server error messages are translated in `app/i18n.py` using the same cookie.
